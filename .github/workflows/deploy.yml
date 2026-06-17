@@ -120,16 +120,16 @@ jobs:
             imageTag=${{ needs.build.outputs.image_tag }}
             externalDb=true
             deployRedis=false
-            externalDbDsn=${{ secrets.DB_CONNECTION_STRING }}
-            dbConnectionString=${{ secrets.DB_CONNECTION_STRING }}
-            jwtSecret=${{ secrets.JWT_SECRET }}
-            geminiApiKey=${{ secrets.GEMINI_API_KEY }}
-            stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
-            stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
-            stripePriceStarter=${{ secrets.STRIPE_PRICE_STARTER }}
-            stripePriceProf=${{ secrets.STRIPE_PRICE_PROF }}
-            stripePriceEnterprise=${{ secrets.STRIPE_PRICE_ENTERPRISE }}
-            serviceBusConnectionString=${{ secrets.SERVICE_BUS_CONN_STR }}
+            externalDbDsn="${{ secrets.DB_CONNECTION_STRING || 'not-configured' }}"
+            dbConnectionString="${{ secrets.DB_CONNECTION_STRING || 'not-configured' }}"
+            jwtSecret="${{ secrets.JWT_SECRET }}"
+            geminiApiKey="${{ secrets.GEMINI_API_KEY }}"
+            stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY || 'not-configured' }}"
+            stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET || 'not-configured' }}"
+            stripePriceStarter="${{ secrets.STRIPE_PRICE_STARTER || 'not-configured' }}"
+            stripePriceProf="${{ secrets.STRIPE_PRICE_PROF || 'not-configured' }}"
+            stripePriceEnterprise="${{ secrets.STRIPE_PRICE_ENTERPRISE || 'not-configured' }}"
+            serviceBusConnectionString="${{ secrets.SERVICE_BUS_CONN_STR || 'not-configured' }}"
           deploymentMode: Incremental
 
       - name: Wait for API health

@@ -48,9 +48,6 @@ param stripePriceProf         string
 param stripePriceEnterprise   string
 
 @secure()
-param redisConnectionString string = ''
-
-@secure()
 @description('Azure Service Bus connection string (for large-file async worker queue).')
 param serviceBusConnectionString string = ''
 
@@ -97,7 +94,7 @@ resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
 }
 
 var resolvedDbDsn    = externalDb ? externalDbDsn : dbConnectionString
-var resolvedRedisUrl = deployRedis ? 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.properties.hostName}:6380' : ''
+var resolvedRedisUrl = deployRedis ? 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.properties.hostName}:6380' : 'not-configured'
 
 // ── Container Apps environment ─────────────────────────────────────────────
 resource env 'Microsoft.App/managedEnvironments@2023-05-01' = {
@@ -130,13 +127,13 @@ var sharedEnv = [
 ]
 
 var sharedSecrets = [
-  { name: 'db-dsn',          value: resolvedDbDsn }
+  { name: 'db-dsn',          value: empty(resolvedDbDsn)             ? 'not-configured' : resolvedDbDsn }
   { name: 'jwt-secret',      value: jwtSecret }
   { name: 'gemini-key',      value: geminiApiKey }
-  { name: 'stripe-secret',   value: stripeSecretKey }
-  { name: 'stripe-webhook',  value: stripeWebhookSecret }
+  { name: 'stripe-secret',   value: empty(stripeSecretKey)           ? 'not-configured' : stripeSecretKey }
+  { name: 'stripe-webhook',  value: empty(stripeWebhookSecret)       ? 'not-configured' : stripeWebhookSecret }
   { name: 'redis-url',       value: resolvedRedisUrl }
-  { name: 'servicebus-conn', value: serviceBusConnectionString }
+  { name: 'servicebus-conn', value: empty(serviceBusConnectionString) ? 'not-configured' : serviceBusConnectionString }
 ]
 
 // ── API service ────────────────────────────────────────────────────────────
