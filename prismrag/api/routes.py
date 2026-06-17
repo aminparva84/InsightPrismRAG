@@ -386,6 +386,30 @@ def create_tenant(
     }
 
 
+# ── Quality summary endpoints ─────────────────────────────────────────────────
+
+@router.get("/quality/search")
+def search_quality_summary(
+    tenant_id: str,
+    days: int = 7,
+    user: dict = Depends(get_current_user),
+):
+    """Aggregated search quality metrics for a tenant over the last N days."""
+    from prismrag.quality.metrics import search_quality_summary as _summary
+    assert_tenant_access(user, tenant_id, "read")
+    return _summary(tenant_id=tenant_id, days=days)
+
+
+@router.get("/quality/deliberation")
+def deliberation_quality_summary(
+    days: int = 7,
+    user: dict = Depends(get_current_user),
+):
+    """Aggregated deliberation quality metrics for the authenticated user."""
+    from prismrag.quality.metrics import deliberation_quality_summary as _summary
+    return _summary(user_id=user["id"], days=days)
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _ensure_tenant_exists(tenant_id: str) -> None:

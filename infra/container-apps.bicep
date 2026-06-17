@@ -50,6 +50,10 @@ param stripePriceEnterprise   string
 @secure()
 param redisConnectionString string = ''
 
+@secure()
+@description('Azure Service Bus connection string (for large-file async worker queue).')
+param serviceBusConnectionString string = ''
+
 
 // ── Log Analytics workspace ────────────────────────────────────────────────
 resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -112,26 +116,27 @@ resource env 'Microsoft.App/managedEnvironments@2023-05-01' = {
 
 // ── Shared env vars ────────────────────────────────────────────────────────
 var sharedEnv = [
-  { name: 'PRISMRAG_DB_DSN',           secretRef: 'db-dsn' }
-  { name: 'REDIS_URL',                 secretRef: 'redis-url' }
-  { name: 'JWT_SECRET',                secretRef: 'jwt-secret' }
-  { name: 'GEMINI_API_KEY',            secretRef: 'gemini-key' }
-  { name: 'STRIPE_SECRET_KEY',         secretRef: 'stripe-secret' }
-  { name: 'STRIPE_WEBHOOK_SECRET',     secretRef: 'stripe-webhook' }
-  { name: 'STRIPE_PRICE_STARTER',      value: stripePriceStarter }
-  { name: 'STRIPE_PRICE_PROFESSIONAL', value: stripePriceProf }
-  { name: 'STRIPE_PRICE_ENTERPRISE',   value: stripePriceEnterprise }
-  { name: 'REDIS_URL',                 secretRef: 'redis-url' }
-  { name: 'PRISMRAG_ENV',              value: 'production' }
+  { name: 'PRISMRAG_DB_DSN',             secretRef: 'db-dsn' }
+  { name: 'REDIS_URL',                   secretRef: 'redis-url' }
+  { name: 'JWT_SECRET',                  secretRef: 'jwt-secret' }
+  { name: 'GEMINI_API_KEY',              secretRef: 'gemini-key' }
+  { name: 'STRIPE_SECRET_KEY',           secretRef: 'stripe-secret' }
+  { name: 'STRIPE_WEBHOOK_SECRET',       secretRef: 'stripe-webhook' }
+  { name: 'AZURE_SERVICE_BUS_CONN_STR',  secretRef: 'servicebus-conn' }
+  { name: 'STRIPE_PRICE_STARTER',        value: stripePriceStarter }
+  { name: 'STRIPE_PRICE_PROFESSIONAL',   value: stripePriceProf }
+  { name: 'STRIPE_PRICE_ENTERPRISE',     value: stripePriceEnterprise }
+  { name: 'PRISMRAG_ENV',                value: 'production' }
 ]
 
 var sharedSecrets = [
-  { name: 'db-dsn',         value: resolvedDbDsn }
-  { name: 'jwt-secret',     value: jwtSecret }
-  { name: 'gemini-key',     value: geminiApiKey }
-  { name: 'stripe-secret',  value: stripeSecretKey }
-  { name: 'stripe-webhook', value: stripeWebhookSecret }
-  { name: 'redis-url',      value: resolvedRedisUrl }
+  { name: 'db-dsn',          value: resolvedDbDsn }
+  { name: 'jwt-secret',      value: jwtSecret }
+  { name: 'gemini-key',      value: geminiApiKey }
+  { name: 'stripe-secret',   value: stripeSecretKey }
+  { name: 'stripe-webhook',  value: stripeWebhookSecret }
+  { name: 'redis-url',       value: resolvedRedisUrl }
+  { name: 'servicebus-conn', value: serviceBusConnectionString }
 ]
 
 // ── API service ────────────────────────────────────────────────────────────

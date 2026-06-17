@@ -1,0 +1,166 @@
+name: Build & Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag (default: git SHA)'
+        required: false
+        default: ''
+
+env:
+  ACR_NAME: prismragacr
+  ACR_LOGIN_SERVER: prismragacr.azurecr.io
+  RESOURCE_GROUP: prismrag-rg
+  LOCATION: eastus2
+
+jobs:
+  # ── 1. Lint + unit smoke ──────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt -r requirements-test.txt --quiet
+
+      - name: Syntax check (no DB needed)
+        run: python -c "import main; print('main.py OK')"
+        env:
+          PRISMRAG_DB_DSN: postgresql://skip:skip@localhost:5432/skip
+          JWT_SECRET: ci-placeholder
+          GEMINI_API_KEY: ci-placeholder
+
+  # ── 2. Build & push both Docker images ───────────────────────────────────
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: lint
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/prismrag-api:${{ steps.tag.outputs.tag }}
+            ${{ env.ACR_LOGIN_SERVER }}/prismrag-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build & push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.worker
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/prismrag-worker:${{ steps.tag.outputs.tag }}
+            ${{ env.ACR_LOGIN_SERVER }}/prismrag-worker:latest
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+  # ── 3. Deploy Bicep to Azure Container Apps ───────────────────────────────
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (service principal)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        with:
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: infra/container-apps.bicep
+          parameters: >
+            acrLoginServer=${{ env.ACR_LOGIN_SERVER }}
+            imageTag=${{ needs.build.outputs.image_tag }}
+            externalDb=true
+            deployRedis=false
+            externalDbDsn=${{ secrets.DB_CONNECTION_STRING }}
+            dbConnectionString=${{ secrets.DB_CONNECTION_STRING }}
+            jwtSecret=${{ secrets.JWT_SECRET }}
+            geminiApiKey=${{ secrets.GEMINI_API_KEY }}
+            stripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }}
+            stripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            stripePriceStarter=${{ secrets.STRIPE_PRICE_STARTER }}
+            stripePriceProf=${{ secrets.STRIPE_PRICE_PROF }}
+            stripePriceEnterprise=${{ secrets.STRIPE_PRICE_ENTERPRISE }}
+            serviceBusConnectionString=${{ secrets.SERVICE_BUS_CONN_STR }}
+          deploymentMode: Incremental
+
+      - name: Wait for API health
+        run: |
+          API_URL=$(az containerapp show \
+            --name prismrag-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+          echo "API URL: https://${API_URL}"
+          echo "API_URL=https://${API_URL}" >> $GITHUB_ENV
+
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sf "https://${API_URL}/api/v1/prismrag/health" \
+                     -o /dev/null -w "%{http_code}" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check timed out after 300s"
+          exit 1
+
+      - name: Print deployment summary
+        if: success()
+        run: |
+          echo "============================================"
+          echo "  PrismRAG deployed successfully"
+          echo "  API: ${{ env.API_URL }}"
+          echo "  Docs: ${{ env.API_URL }}/docs"
+          echo "  Image tag: ${{ needs.build.outputs.image_tag }}"
+          echo "============================================"

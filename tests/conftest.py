@@ -57,7 +57,7 @@ def qa_credentials():
 def auth_token(api, qa_credentials):
     """Register and return a valid JWT. Cached for the full session."""
     # Register
-    r = api.post(api.url("/api/auth/register"), json={
+    r = api.post(api.url("/api/v1/auth/register"), json={
         "email":    qa_credentials["email"],
         "password": qa_credentials["password"],
         "name":     qa_credentials["name"],
@@ -68,7 +68,7 @@ def auth_token(api, qa_credentials):
         pytest.fail(f"Register failed: {r.status_code} {r.text}")
 
     # Login
-    r = api.post(api.url("/api/auth/login"), json={
+    r = api.post(api.url("/api/v1/auth/login"), json={
         "email":    qa_credentials["email"],
         "password": qa_credentials["password"],
     })
@@ -84,9 +84,15 @@ def authed_api(api, auth_token):
 
 # ── Domain tenant fixtures ────────────────────────────────────────────────────
 
+# ── API path prefixes (matches actual router definitions) ─────────────────────
+AUTH_API  = "/api/v1/auth"
+RAG_API   = "/api/v1/prismrag"
+DELIB_API = "/api/v1/deliberation"
+
+
 @pytest.fixture(scope="session")
 def healthcare_tenant(authed_api):
-    r = authed_api.post(authed_api.url("/api/prismrag/tenants"), json={
+    r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA Healthcare Clinic",
     })
     assert r.status_code in (200, 201), f"Create tenant failed: {r.text}"
@@ -94,7 +100,7 @@ def healthcare_tenant(authed_api):
 
 @pytest.fixture(scope="session")
 def pharmacy_tenant(authed_api):
-    r = authed_api.post(authed_api.url("/api/prismrag/tenants"), json={
+    r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA PharmaCo",
     })
     assert r.status_code in (200, 201), f"Create tenant failed: {r.text}"
@@ -102,7 +108,7 @@ def pharmacy_tenant(authed_api):
 
 @pytest.fixture(scope="session")
 def finance_tenant(authed_api):
-    r = authed_api.post(authed_api.url("/api/prismrag/tenants"), json={
+    r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA FinanceCo",
     })
     assert r.status_code in (200, 201), f"Create tenant failed: {r.text}"

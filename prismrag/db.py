@@ -62,6 +62,7 @@ _SCHEMA_FILES = (
     "enterprise_features_schema.sql",
     "audit_schema.sql",
     "deliberation_schema.sql",
+    "quality/schema.sql",
 )
 
 
