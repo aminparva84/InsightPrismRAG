@@ -11,12 +11,8 @@ param location string = resourceGroup().location
 @description('Container registry login server (e.g. prismrag.azurecr.io)')
 param acrLoginServer string
 
-@description('ACR registry name (username for admin login)')
+@description('Name of the ACR resource (must be in same subscription for role assignment)')
 param acrName string = 'prismragacr'
-
-@secure()
-@description('ACR admin password for image pull')
-param acrPassword string
 
 @description('Container image tag')
 param imageTag string = 'latest'
@@ -50,9 +46,9 @@ param stripeSecretKey string
 @secure()
 param stripeWebhookSecret string
 
-param stripePriceStarter      string
-param stripePriceProf         string
-param stripePriceEnterprise   string
+param stripePriceStarter    string
+param stripePriceProf       string
+param stripePriceEnterprise string
 
 @secure()
 @description('Azure Service Bus connection string (for large-file async worker queue).')
@@ -66,18 +62,41 @@ resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   properties: { sku: { name: 'PerGB2018' }, retentionInDays: 30 }
 }
 
+// ── User-assigned managed identity for ACR image pull ─────────────────────
+resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'prismrag-pull-identity'
+  location: location
+}
+
+// ── Reference the existing ACR for role assignment ─────────────────────────
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: acrName
+}
+
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull built-in
+
+resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, pullIdentity.id, acrPullRoleId)
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalId: pullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ── Azure Postgres Flexible Server (Phase 2+, skipped in Phase 1) ─────────
 resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview' = if (!externalDb) {
   name: 'prismrag-pg'
   location: location
   sku: {
-    name: postgresSku          // Standard_B2s (~$30/mo) or Standard_D4s_v3 (~$120/mo)
+    name: postgresSku
     tier: postgresSku == 'Standard_B2s' ? 'Burstable' : 'GeneralPurpose'
   }
   properties: {
     version: '15'
     administratorLogin: 'prismrag'
-    administratorLoginPassword: dbConnectionString  // reuse secret slot
+    administratorLoginPassword: dbConnectionString
     storage: { storageSizeGB: 32 }
     backup: { backupRetentionDays: 7, geoRedundantBackup: 'Disabled' }
     highAvailability: {
@@ -94,7 +113,7 @@ resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = if (deployRedis) {
   name: 'prismrag-cache'
   location: location
   properties: {
-    sku: { name: 'Basic', family: 'C', capacity: 1 }   // C1 Basic ~$55/mo; upgrade to Standard for HA
+    sku: { name: 'Basic', family: 'C', capacity: 1 }
     enableNonSslPort: false
     minimumTlsVersion: '1.2'
   }
@@ -118,7 +137,7 @@ resource env 'Microsoft.App/managedEnvironments@2023-05-01' = {
   }
 }
 
-// ── Shared env vars ────────────────────────────────────────────────────────
+// ── Shared env vars & secrets ──────────────────────────────────────────────
 var sharedEnv = [
   { name: 'PRISMRAG_DB_DSN',             secretRef: 'db-dsn' }
   { name: 'REDIS_URL',                   secretRef: 'redis-url' }
@@ -134,21 +153,19 @@ var sharedEnv = [
 ]
 
 var sharedSecrets = [
-  { name: 'db-dsn',          value: empty(resolvedDbDsn)             ? 'not-configured' : resolvedDbDsn }
+  { name: 'db-dsn',          value: empty(resolvedDbDsn)              ? 'not-configured' : resolvedDbDsn }
   { name: 'jwt-secret',      value: jwtSecret }
   { name: 'gemini-key',      value: geminiApiKey }
-  { name: 'stripe-secret',   value: empty(stripeSecretKey)           ? 'not-configured' : stripeSecretKey }
-  { name: 'stripe-webhook',  value: empty(stripeWebhookSecret)       ? 'not-configured' : stripeWebhookSecret }
+  { name: 'stripe-secret',   value: empty(stripeSecretKey)            ? 'not-configured' : stripeSecretKey }
+  { name: 'stripe-webhook',  value: empty(stripeWebhookSecret)        ? 'not-configured' : stripeWebhookSecret }
   { name: 'redis-url',       value: resolvedRedisUrl }
-  { name: 'servicebus-conn', value: empty(serviceBusConnectionString) ? 'not-configured' : serviceBusConnectionString }
-  { name: 'acr-password',    value: acrPassword }
+  { name: 'servicebus-conn', value: empty(serviceBusConnectionString)  ? 'not-configured' : serviceBusConnectionString }
 ]
 
 var registryConfig = [
   {
     server: acrLoginServer
-    username: acrName
-    passwordSecretRef: 'acr-password'
+    identity: pullIdentity.id  // managed identity — no password needed
   }
 ]
 
@@ -156,6 +173,11 @@ var registryConfig = [
 resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'prismrag-api'
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: { '${pullIdentity.id}': {} }
+  }
+  dependsOn: [acrPullAssignment]
   properties: {
     managedEnvironmentId: env.id
     configuration: {
@@ -196,7 +218,7 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       scale: {
-        minReplicas: 1   // always-on (no cold start on search calls)
+        minReplicas: 1
         maxReplicas: 20
         rules: [
           {
@@ -213,6 +235,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
 resource workerApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: 'prismrag-worker'
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: { '${pullIdentity.id}': {} }
+  }
+  dependsOn: [acrPullAssignment]
   properties: {
     managedEnvironmentId: env.id
     configuration: {
@@ -229,7 +256,7 @@ resource workerApp 'Microsoft.App/containerApps@2023-05-01' = {
         }
       ]
       scale: {
-        minReplicas: 0   // scale-to-zero when no jobs queued
+        minReplicas: 0
         maxReplicas: 10
         rules: [
           {
@@ -238,7 +265,7 @@ resource workerApp 'Microsoft.App/containerApps@2023-05-01' = {
               type: 'azure-servicebus'
               metadata: {
                 queueName: 'prismrag-jobs'
-                messageCount: '5'   // 1 worker per 5 queued messages
+                messageCount: '5'
               }
             }
           }

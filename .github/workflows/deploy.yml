@@ -130,7 +130,6 @@ jobs:
             stripePriceProf="${{ secrets.STRIPE_PRICE_PROF || 'not-configured' }}"
             stripePriceEnterprise="${{ secrets.STRIPE_PRICE_ENTERPRISE || 'not-configured' }}"
             serviceBusConnectionString="${{ secrets.SERVICE_BUS_CONN_STR || 'not-configured' }}"
-            acrPassword="${{ secrets.ACR_PASSWORD }}"
           deploymentMode: Incremental
 
       - name: Wait for API health
