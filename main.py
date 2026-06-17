@@ -15,7 +15,11 @@ from prismrag.api.auth_routes import auth_router
 from prismrag.api.billing_routes import billing_router
 from prismrag.api.upload_routes import upload_router
 from prismrag.api.deliberation_routes import deliberation_router
+from prismrag.api.tenant_routes import tenant_router
 from prismrag.middleware.logging import AuditMiddleware
+from prismrag.middleware.versioning import LegacyApiMiddleware
+from prismrag.middleware.request_id import RequestIdMiddleware
+from prismrag.middleware.metrics import MetricsMiddleware, metrics_endpoint
 from prismrag.db import init_schema
 
 logging.basicConfig(
@@ -32,29 +36,42 @@ app = FastAPI(
         "client-defined mapping strategies — your domain expertise defines "
         "the knowledge graph, not document co-occurrence statistics."
     ),
-    version="0.2.0",
+    version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# ── Middleware (order matters: outermost = first to run) ──────────────────────
-# CORS first so OPTIONS pre-flight never hits the audit log
+# ── Middleware (order matters: last added = first to run on request) ──────────
+_cors_raw = os.getenv("PRISMRAG_CORS_ORIGINS", "*").strip()
+if _cors_raw == "*":
+    _cors_origins = ["*"]
+    _cors_credentials = False
+else:
+    _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+    _cors_credentials = os.getenv("PRISMRAG_CORS_CREDENTIALS", "true").lower() in (
+        "1", "true", "yes",
+    )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Audit logger wraps every request after CORS
 app.add_middleware(AuditMiddleware)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestIdMiddleware)
+app.add_middleware(LegacyApiMiddleware)
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# ── Routers (v1) ──────────────────────────────────────────────────────────────
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(billing_router)
 app.include_router(upload_router)
 app.include_router(deliberation_router)
+app.include_router(tenant_router)
+
+app.get("/metrics", include_in_schema=False)(metrics_endpoint)
 
 # ── Static files (web frontend) ───────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="web/static"), name="static")

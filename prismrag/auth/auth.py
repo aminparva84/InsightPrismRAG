@@ -14,8 +14,16 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 JWT_SECRET  = (
     os.getenv("PRISMRAG_JWT_SECRET")
     or os.getenv("JWT_SECRET")
-    or secrets.token_hex(32)
+    or ""
 )
+if not JWT_SECRET:
+    _env = (os.getenv("PRISMRAG_ENV") or os.getenv("ENVIRONMENT") or "development").lower()
+    if _env in ("production", "prod", "staging"):
+        raise RuntimeError(
+            "JWT_SECRET or PRISMRAG_JWT_SECRET must be set in production/staging. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    JWT_SECRET = secrets.token_hex(32)
 JWT_ALGO    = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("PRISMRAG_JWT_EXPIRE_HOURS", "72"))
 
@@ -35,7 +43,9 @@ def hash_password(plain: str) -> str:
         return f"pbkdf2:{salt}:{dk.hex()}"
 
 
-def verify_password(plain: str, hashed: str) -> bool:
+def verify_password(plain: str, hashed: str | None) -> bool:
+    if not hashed:
+        return False
     try:
         if hashed.startswith("pbkdf2:"):
             _, salt, dk_hex = hashed.split(":", 2)
@@ -92,6 +102,18 @@ def hash_api_key(raw: str) -> str:
 
 # ── FastAPI dependency ────────────────────────────────────────────────────────
 
+def check_api_scope(user: dict, scope: str) -> None:
+    """Raise 403 if request used an API key without the required scope."""
+    scopes = user.get("_apiKeyScopes")
+    if scopes is None:
+        return  # JWT session — full access
+    if scope not in scopes and "admin" not in scopes:
+        raise HTTPException(
+            status_code=403,
+            detail=f"API key missing scope '{scope}'. Create a key with read,write scopes.",
+        )
+
+
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Security(_bearer),
 ) -> dict:
@@ -124,7 +146,7 @@ def _resolve_api_key(raw: str) -> dict:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT ak.user_id, ak.id, ak.is_active
+            SELECT ak.user_id, ak.id, ak.is_active, ak.scopes
             FROM prismrag.api_key ak
             WHERE ak.key_hash = %s
             """,
@@ -139,7 +161,9 @@ def _resolve_api_key(raw: str) -> dict:
             (row[1],),
         )
         conn.commit()
-        return _load_user(str(row[0]), conn=None)
+        user = _load_user(str(row[0]), conn=None)
+        user["_apiKeyScopes"] = list(row[3] or ["read", "write"])
+        return user
     finally:
         release_conn(conn)
 

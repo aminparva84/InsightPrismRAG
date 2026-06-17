@@ -13,12 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from prismrag.auth.auth import get_current_user
+from prismrag.auth.tenant import assert_tenant_access
 from prismrag.models import (
     FileSourceConfig, JobRequest, MappingConfigIn, SourceType, StrategyType,
 )
 from prismrag.validation import validate_job_submit
 
-upload_router = APIRouter(prefix="/api/prismrag/upload", tags=["Upload"])
+upload_router = APIRouter(prefix="/api/v1/prismrag/upload", tags=["Upload"])
 
 
 class PresignRequest(BaseModel):
@@ -53,16 +54,11 @@ def presign_upload(body: PresignRequest, user: dict = Depends(get_current_user))
     The client PUTs the file directly to Azure Blob — never routes through the API server.
     This means even a 10 GB file doesn't touch our compute at upload time.
     """
-    size = body.file_size_bytes or 0
+    assert_tenant_access(user, body.tenant_id)
+    from prismrag.plans import get_plan_limits
 
-    # Enforce file-size limits per plan
-    plan_limits = {
-        "free":         10_000_000,     # 10 MB
-        "starter":      100_000_000,    # 100 MB
-        "professional": 500_000_000,    # 500 MB
-        "enterprise":   0,              # unlimited
-    }
-    plan_max = plan_limits.get(user["plan"], 10_000_000)
+    size = body.file_size_bytes or 0
+    plan_max = get_plan_limits(user["plan"]).get("max_file_bytes", 10_000_000)
     if plan_max > 0 and size > plan_max:
         raise HTTPException(
             status_code=413,
@@ -86,6 +82,7 @@ def confirm_upload(body: ConfirmRequest, user: dict = Depends(get_current_user))
     Step 2: Client confirms the PUT completed.
     We verify the blob exists then enqueue the ingest job.
     """
+    assert_tenant_access(user, body.tenant_id)
     try:
         mapping = MappingConfigIn.model_validate(body.mapping)
     except Exception as exc:
@@ -129,6 +126,6 @@ def confirm_upload(body: ConfirmRequest, user: dict = Depends(get_current_user))
     return {
         "job_id":     job_id,
         "status":     "queued",
-        "status_url": f"/api/prismrag/jobs/{job_id}",
+        "status_url": f"/api/v1/prismrag/jobs/{job_id}",
         "message":    "File queued for processing. Poll status_url for progress.",
     }

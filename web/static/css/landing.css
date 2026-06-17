@@ -584,3 +584,14 @@ ul { list-style: none; }
   .hero-code-block { display: block !important; }
   .stats-row { grid-template-columns: 1fr; }
 }
+
+/* ── Legal pages ─────────────────────────────────────────────────────────── */
+.legal-page { background: var(--bg); color: var(--text); min-height: 100vh; }
+.legal-content {
+  max-width: 720px; margin: 0 auto; padding: 48px 24px 80px;
+  line-height: 1.7;
+}
+.legal-content h1 { font-size: 2rem; margin-bottom: 8px; }
+.legal-content h2 { font-size: 1.15rem; margin: 32px 0 12px; }
+.legal-content ul { padding-left: 1.25rem; margin: 12px 0; }
+.legal-content a { color: var(--accent); }

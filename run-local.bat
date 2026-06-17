@@ -87,7 +87,15 @@ echo        Database ready on localhost:5432
 set PORT=8001
 for /f "usebackq tokens=1,* delims==" %%A in (`findstr /B "PRISMRAG_PORT=" .env 2^>nul`) do set PORT=%%B
 
-echo [5/5] Starting server at http://localhost:%PORT%
+findstr /I "PRISMRAG_USE_JOB_QUEUE=true" .env >nul 2>&1
+if not errorlevel 1 (
+    echo [5/5] Starting background job worker ^(PRISMRAG_USE_JOB_QUEUE=true^)...
+    start "PrismRAG Worker" /MIN cmd /c "%PYTHON% -m prismrag.worker.job_worker"
+) else (
+    echo [5/5] Job queue disabled ^(set PRISMRAG_USE_JOB_QUEUE=true in .env for async worker^)
+)
+
+echo [6/6] Starting API server at http://localhost:%PORT%
 echo.
 echo  Open in browser:
 echo    Home:      http://localhost:%PORT%/

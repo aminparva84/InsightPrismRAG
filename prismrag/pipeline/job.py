@@ -227,6 +227,9 @@ def run_job(
     job_id: str,
     request: JobRequest,
     upload_bytes: bytes | None = None,
+    *,
+    user_id: str | None = None,
+    plan: str = "free",
 ) -> dict:
     """
     Execute the full ingest pipeline for one job.
@@ -235,12 +238,16 @@ def run_job(
     Updates job progress in DB as it proceeds.
     """
     _update_job(job_id, status="running", started_at=datetime.now(timezone.utc))
+    started = datetime.now(timezone.utc)
+    mapping_id_result: str | None = None
+    community_count = 0
 
     try:
         # 1. Persist mapping definition (Tier-1 rules)
         mapping_id = _persist_mapping(
             str(request.tenant_id), request.mapping, request.strategy.value
         )
+        mapping_id_result = mapping_id
         _update_job(job_id, mapping_id=mapping_id)
 
         # 2. Build source adapter
@@ -275,16 +282,35 @@ def run_job(
         _update_job(job_id, progress_pct=90, records_written=written)
         try:
             _build_graph_and_communities(str(request.tenant_id), mapping_id)
+            community_count = _count_communities(str(request.tenant_id), mapping_id)
         except Exception as exc:
             logger.warning("Graph build non-fatal error: %s", exc)
 
+        finished = datetime.now(timezone.utc)
         _update_job(
             job_id,
             status="completed",
             records_written=written,
             progress_pct=100,
-            finished_at=datetime.now(timezone.utc),
+            finished_at=finished,
         )
+
+        from prismrag.audit.results import log_ingest_result
+        log_ingest_result(
+            job_id=job_id,
+            user_id=user_id,
+            tenant_id=str(request.tenant_id),
+            mapping_id=mapping_id_result,
+            strategy=request.strategy.value,
+            records_total=total,
+            records_written=written,
+            community_count=community_count,
+            duration_s=int((finished - started).total_seconds()),
+            plan=plan,
+        )
+
+        from prismrag.middleware.metrics import record_job_completion
+        record_job_completion("completed")
 
         # 7. Webhook callback
         if request.webhook_url:
@@ -296,12 +322,28 @@ def run_job(
     except Exception as exc:
         logger.error("Job %s failed: %s", job_id, exc)
         traceback.print_exc()
+        finished = datetime.now(timezone.utc)
         _update_job(
             job_id,
             status="failed",
             error_message=str(exc)[:500],
-            finished_at=datetime.now(timezone.utc),
+            finished_at=finished,
         )
+        from prismrag.audit.results import log_ingest_result
+        log_ingest_result(
+            job_id=job_id,
+            user_id=user_id,
+            tenant_id=str(request.tenant_id),
+            mapping_id=mapping_id_result,
+            strategy=request.strategy.value,
+            records_total=None,
+            records_written=0,
+            error_summary=str(exc),
+            duration_s=int((finished - started).total_seconds()),
+            plan=plan,
+        )
+        from prismrag.middleware.metrics import record_job_completion
+        record_job_completion("failed")
         if request.webhook_url:
             _fire_webhook(request.webhook_url, job_id, "failed")
         raise
@@ -367,6 +409,19 @@ def _build_graph_and_communities(tenant_id: str, mapping_id: str) -> None:
     from prismrag.graph.community import build_communities
     build_graph(tenant_id, mapping_id)
     build_communities(tenant_id, mapping_id)
+
+
+def _count_communities(tenant_id: str, mapping_id: str) -> int:
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM prismrag.community_summary WHERE tenant_id = %s AND mapping_id = %s",
+            (tenant_id, mapping_id),
+        )
+        return int(cur.fetchone()[0])
+    finally:
+        release_conn(conn)
 
 
 def _fire_webhook(url: str, job_id: str, status: str) -> None:

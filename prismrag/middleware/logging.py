@@ -28,13 +28,14 @@ _REQ_BODY_LIMIT  = 8_192    # 8 KB
 _RESP_BODY_LIMIT = 4_096    # 4 KB
 
 # Endpoints where we suppress the response body entirely (contains tokens/keys)
-_SUPPRESS_RESP_PATHS = {"/api/auth/register", "/api/auth/login", "/api/auth/api-keys"}
+_SUPPRESS_RESP_PATHS = {
+    "/api/auth/register", "/api/auth/login", "/api/auth/api-keys",
+    "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/api-keys",
+}
 
-# Fields stripped from request JSON before storage
+_SKIP_PREFIXES = ("/static/", "/favicon", "/api/prismrag/health", "/api/v1/prismrag/health", "/metrics")
+
 _STRIP_FIELDS = {"password", "password_hash", "raw_key", "key_hash", "stripe_secret_key"}
-
-# Paths that don't need logging at all (health / static)
-_SKIP_PREFIXES = ("/static/", "/favicon", "/api/prismrag/health")
 
 # How many days to keep logs per plan
 LOG_RETENTION_DAYS: dict[str, int] = {
@@ -92,6 +93,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         )
 
         # Write log record in background — never blocks
+        trace_id = getattr(request.state, "trace_id", "")
         _write_log_bg(
             user_id=user_id,
             plan=plan,
@@ -104,6 +106,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             resp_body=resp_body_str,
             ip=_client_ip(request),
             user_agent=request.headers.get("user-agent", "")[:200],
+            trace_id=trace_id,
         )
 
         return response
@@ -141,7 +144,13 @@ def _extract_identity(request: Request) -> tuple[str | None, str]:
     # JWT — decode without DB
     try:
         import jwt
-        jwt_secret = os.getenv("PRISMRAG_JWT_SECRET", "")
+        jwt_secret = (
+            os.getenv("PRISMRAG_JWT_SECRET")
+            or os.getenv("JWT_SECRET")
+            or ""
+        )
+        if not jwt_secret:
+            return None, "anonymous"
         payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
         return payload.get("sub"), payload.get("plan", "unknown")
     except Exception:
@@ -173,12 +182,12 @@ def _write_log(**kwargs) -> None:
                     (user_id, plan, method, path, query_string,
                      status_code, latency_ms,
                      req_body, resp_body,
-                     client_ip, user_agent)
+                     client_ip, user_agent, trace_id)
                 VALUES
                     (%(user_id)s, %(plan)s, %(method)s, %(path)s, %(query)s,
                      %(status_code)s, %(latency_ms)s,
                      %(req_body)s, %(resp_body)s,
-                     %(ip)s, %(user_agent)s)
+                     %(ip)s, %(user_agent)s, %(trace_id)s)
                 """,
                 kwargs,
             )

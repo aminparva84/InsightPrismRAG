@@ -28,9 +28,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from prismrag.auth.auth import get_current_user
-from prismrag.metering.quota import check_and_record, PLAN_LIMITS
+from prismrag.auth.tenant import assert_tenant_access
+from prismrag.metering.quota import check_and_record
 
-deliberation_router = APIRouter(prefix="/api/deliberation", tags=["Deliberation"])
+deliberation_router = APIRouter(prefix="/api/v1/deliberation", tags=["Deliberation"])
 
 # ── Plan limits for deliberation ──────────────────────────────────────────────
 DELIBERATION_MONTHLY_LIMITS: dict[str, int] = {
@@ -129,6 +130,8 @@ async def create_and_run_session(
       Poll GET /api/deliberation/sessions/{session_id} for completion.
     """
     _check_deliberation_quota(user)
+    if req.tenant_id:
+        assert_tenant_access(user, req.tenant_id)
 
     from prismrag.deliberation.engine import create_session, run_deliberation, run_deliberation_bg
 
@@ -199,6 +202,8 @@ def get_domains(session_id: str, user: dict = Depends(get_current_user)):
     session = _get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") and session["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not your session")
     return {
         "session_id": session_id,
         "question":   session["question"],

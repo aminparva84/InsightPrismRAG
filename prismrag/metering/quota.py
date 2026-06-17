@@ -28,46 +28,20 @@ EventType = Literal[
     "bridge_create",   # 1 unit = 1 bridge vector
 ]
 
-# ── Per-plan limits ───────────────────────────────────────────────────────────
-# monthly_chunks: 0 = unlimited (enterprise)
-PLAN_LIMITS: dict[str, dict] = {
-    "free": {
-        "monthly_chunks":   5_000,
-        "monthly_searches": 500,
-        "req_per_min":      20,
-        "max_tenants":      1,
-        "mlp_train":        False,
-        "bridge_vectors":   False,
-        "graph_rag":        False,
-    },
-    "starter": {
-        "monthly_chunks":   200_000,
-        "monthly_searches": 20_000,
-        "req_per_min":      120,
-        "max_tenants":      3,
-        "mlp_train":        False,
-        "bridge_vectors":   False,
-        "graph_rag":        True,
-    },
-    "professional": {
-        "monthly_chunks":   2_000_000,
-        "monthly_searches": 150_000,
-        "req_per_min":      600,
-        "max_tenants":      20,
-        "mlp_train":        True,
-        "bridge_vectors":   True,
-        "graph_rag":        True,
-    },
-    "enterprise": {
-        "monthly_chunks":   0,          # unlimited
-        "monthly_searches": 0,
-        "req_per_min":      0,          # 0 = no limit
-        "max_tenants":      -1,
-        "mlp_train":        True,
-        "bridge_vectors":   True,
-        "graph_rag":        True,
-    },
-}
+# ── Per-plan limits (loaded from DB via prismrag.plans) ───────────────────────
+from prismrag.plans import get_plan_limits as _get_plan_limits
+
+
+def PLAN_LIMITS(plan: str | None = None) -> dict:
+    """Backward-compatible accessor. Pass plan name or use get_plan_limits() directly."""
+    if plan is None:
+        from prismrag.plans import get_all_plans
+        return get_all_plans()
+    return _get_plan_limits(plan)
+
+
+def _limits_for(plan: str) -> dict:
+    return _get_plan_limits(plan)
 
 # ── Overage prices (USD per 1 000 units) ─────────────────────────────────────
 OVERAGE_PRICE_PER_1K: dict[str, float] = {
@@ -104,7 +78,7 @@ def _get_redis():
 
 def _redis_rate_limit(user_id: str, plan: str) -> None:
     """Raises 429 if user exceeds req/min limit. No-op if Redis unavailable."""
-    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["req_per_min"]
+    limit = _limits_for(plan)["req_per_min"]
     if limit == 0:
         return  # enterprise: no rate limit
 
@@ -227,7 +201,7 @@ def _write_usage_event_bg(
 
 def check_feature(plan: str, feature: str) -> None:
     """Raise 403 if plan doesn't include the feature."""
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    limits = _limits_for(plan)
     if not limits.get(feature, False):
         raise HTTPException(
             status_code=403,
@@ -254,7 +228,7 @@ def check_and_record(
     """
     user_id = user["id"]
     plan    = user.get("plan", "free")
-    limits  = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+    limits  = _limits_for(plan)
 
     # 1. Rate limit
     _redis_rate_limit(user_id, plan)

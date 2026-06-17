@@ -58,6 +58,7 @@ def vector_to_pg(vec) -> str:
 _SCHEMA_FILES = (
     "schema.sql",
     "auth_schema.sql",
+    "enterprise_schema.sql",
     "audit_schema.sql",
     "deliberation_schema.sql",
 )

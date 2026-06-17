@@ -44,6 +44,7 @@ except ImportError:
 API_BASE   = os.getenv("PRISMRAG_API_BASE", "http://localhost:8001")
 API_KEY    = os.getenv("PRISMRAG_API_KEY", "")
 TENANT_ID  = os.getenv("PRISMRAG_TENANT_ID", "")
+MCP_HTTP_TOKEN = os.getenv("PRISMRAG_MCP_HTTP_TOKEN", "")
 
 
 # ── HTTP client ───────────────────────────────────────────────────────────────
@@ -220,7 +221,7 @@ def _handle_search(args: dict) -> str:
     tenant = args.get("tenant_id") or TENANT_ID
     if not tenant:
         return "Error: tenant_id required. Set PRISMRAG_TENANT_ID env var or pass tenant_id."
-    result = _call("post", "/api/prismrag/search", json={
+    result = _call("post", "/api/v1/prismrag/search", json={
         "tenant_id":       tenant,
         "query":           args["query"],
         "top_k":           args.get("top_k", 10),
@@ -247,8 +248,8 @@ def _handle_list_workspaces(_args: dict) -> str:
     # Use /api/auth/me to get user info and echo back what we know
     # Full workspace list requires a GET /api/prismrag/tenants endpoint
     try:
-        me = _call("get", "/api/auth/me")
-        usage = _call("get", "/api/auth/usage")
+        me = _call("get", "/api/v1/auth/me")
+        usage = _call("get", "/api/v1/auth/usage")
         return (
             f"User: {me.get('email')} | Plan: {me.get('plan')}\n"
             f"Workspaces used: {usage.get('tenants_count', '?')}\n"
@@ -264,46 +265,27 @@ def _handle_list_communities(args: dict) -> str:
         return "Error: tenant_id required."
     mapping_id = args.get("mapping_id", "")
     try:
-        from prismrag.db import get_conn, release_conn
-        conn = get_conn()
-        try:
-            cur = conn.cursor()
-            query = """
-                SELECT cs.community_id, cs.label, cs.size,
-                       array_agg(cm.word ORDER BY cm.word) FILTER (WHERE cm.word IS NOT NULL) as top_words
-                FROM prismrag.community_summary cs
-                LEFT JOIN prismrag.community_member cm
-                    ON cm.community_id = cs.community_id
-                    AND cm.tenant_id = cs.tenant_id
-                WHERE cs.tenant_id = %s
-            """
-            params: list = [tenant]
-            if mapping_id:
-                query += " AND cs.mapping_id = %s"
-                params.append(mapping_id)
-            query += " GROUP BY cs.community_id, cs.label, cs.size ORDER BY cs.size DESC LIMIT 20"
-            cur.execute(query, params)
-            rows = cur.fetchall()
-        finally:
-            release_conn(conn)
-
+        params = {"tenant_id": tenant}
+        if mapping_id:
+            params["mapping_id"] = mapping_id
+        rows = _call("get", "/api/v1/prismrag/communities", params=params)
         if not rows:
             return "No communities found. Submit an ingest job first to build the knowledge graph."
 
         lines = [f"Communities in workspace {tenant[:8]}... ({len(rows)} shown)\n"]
         for r in rows:
-            words = (r[3] or [])[:5]
+            words = (r.get("top_words") or [])[:5]
             lines.append(
-                f"  [{r[0]}] {r[1]} (size={r[2]}) — "
-                f"top words: {', '.join(words)}"
+                f"  [{r.get('id')}] {r.get('label')} (size={r.get('size')}) — "
+                f"top: {', '.join(words)}"
             )
         return "\n".join(lines)
     except Exception as exc:
-        return f"Error reading communities: {exc}"
+        return f"Error: {exc}"
 
 
 def _handle_get_job_status(args: dict) -> str:
-    job = _call("get", f"/api/prismrag/jobs/{args['job_id']}")
+    job = _call("get", f"/api/v1/prismrag/jobs/{args['job_id']}")
     return (
         f"Job: {job.get('job_id', '?')}\n"
         f"Status: {job.get('status')}\n"
@@ -333,7 +315,7 @@ def _handle_submit_job(args: dict) -> str:
         })
     if not records:
         return "Error: at least one rule with a word is required."
-    result = _call("post", "/api/prismrag/jobs", json={
+    result = _call("post", "/api/v1/prismrag/jobs", json={
         "tenant_id":   tenant,
         "source_type": "inline",
         "strategy":    args.get("strategy", "rules"),
@@ -357,7 +339,7 @@ def _handle_create_bridge(args: dict) -> str:
     mapping_id = args.get("mapping_id", "")
     if not mapping_id:
         return "Error: mapping_id required for bridge creation."
-    result = _call("post", "/api/prismrag/bridge", json={
+    result = _call("post", "/api/v1/prismrag/bridge", json={
         "tenant_id":   tenant,
         "mapping_id":  mapping_id,
         "community_a": args["community_a"],
@@ -381,7 +363,7 @@ def _handle_deliberate(args: dict) -> str:
     tenant_id  = args.get("tenant_id") or TENANT_ID
     domain_count = int(args.get("domain_count", 7))
 
-    res = _call("post", "/api/deliberation/sessions", json={
+    res = _call("post", "/api/v1/deliberation/sessions", json={
         "question":     question,
         "tenant_id":    tenant_id or None,
         "domain_count": domain_count,
@@ -410,7 +392,7 @@ def _handle_get_deliberation_session(args: dict) -> str:
     session_id = args.get("session_id", "").strip()
     if not session_id:
         return "Error: session_id required."
-    res = _call("get", f"/api/deliberation/sessions/{session_id}")
+    res = _call("get", f"/api/v1/deliberation/sessions/{session_id}")
     synth = res.get("synthesis") or {}
     return (
         f"Session: {session_id[:8]}… | Status: {res.get('status')}\n"
@@ -425,7 +407,7 @@ def _handle_deliberation_followup(args: dict) -> str:
     question   = args.get("question", "").strip()
     if not session_id or not question:
         return "Error: session_id and question are required."
-    res = _call("post", f"/api/deliberation/sessions/{session_id}/followup",
+    res = _call("post", f"/api/v1/deliberation/sessions/{session_id}/followup",
                 json={"question": question})
     return f"Follow-up Answer:\n{res.get('answer', 'No answer returned.')}"
 
@@ -585,14 +567,24 @@ def run_http_server(port: int = 8002):
     from fastapi.responses import StreamingResponse, JSONResponse
     import json as _json
 
-    http_app = FastAPI(title="PrismRAG MCP", version="0.2.0")
+    http_app = FastAPI(title="PrismRAG MCP", version="1.0.0")
+
+    def _check_mcp_auth(request: Request) -> bool:
+        if not MCP_HTTP_TOKEN:
+            return True
+        auth = request.headers.get("authorization", "")
+        return auth in (f"Bearer {MCP_HTTP_TOKEN}", MCP_HTTP_TOKEN)
 
     @http_app.get("/mcp/tools")
-    def get_tools():
+    def get_tools(request: Request):
+        if not _check_mcp_auth(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
         return TOOLS
 
     @http_app.post("/mcp/call")
     async def call_tool(request: Request):
+        if not _check_mcp_auth(request):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
         body = await request.json()
         name = body.get("name")
         args = body.get("arguments", {})

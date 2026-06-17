@@ -16,7 +16,7 @@ from prismrag.billing.stripe_client import (
     STRIPE_PUBLISHABLE_KEY,
 )
 
-router = APIRouter(prefix="/api/billing", tags=["Billing"])
+router = APIRouter(prefix="/api/v1/billing", tags=["Billing"])
 billing_router = router  # alias used in main.py
 
 BASE_URL = os.getenv("PRISMRAG_BASE_URL", "http://localhost:8001")
@@ -28,85 +28,45 @@ class CheckoutIn(BaseModel):
 
 @router.get("/plans")
 def list_plans():
-    """Return plan details and Stripe publishable key for frontend."""
-    return {
-        "stripePublishableKey": STRIPE_PUBLISHABLE_KEY,
-        "plans": [
-            {
-                "id":          "free",
-                "name":        "Free",
-                "price":       0,
-                "currency":    "usd",
-                "interval":    "month",
-                "description": "Try PrismRAG with no commitment",
-                "features": [
-                    "5,000 chunks / month",
-                    "1 workspace",
-                    "Graph RAG retrieval",
-                    "Community support",
-                ],
-                "cta": "Start Free",
-            },
-            {
-                "id":          "starter",
-                "name":        "Starter",
-                "price":       4900,
-                "currency":    "usd",
-                "interval":    "month",
-                "description": "For teams building their first re-mapping pipeline",
-                "features": [
-                    "50,000 chunks / month",
-                    "1 workspace",
-                    "3 mapping versions",
-                    "Graph RAG retrieval",
-                    "CSV / Excel / API ingestion",
-                    "Email support",
-                ],
-                "cta": "Start Starter",
-                "popular": False,
-            },
-            {
-                "id":          "professional",
-                "name":        "Professional",
-                "price":       19900,
-                "currency":    "usd",
-                "interval":    "month",
-                "description": "For teams deploying domain-specific semantic search",
-                "features": [
-                    "500,000 chunks / month",
-                    "10 workspaces",
-                    "20 mapping versions",
-                    "Tier-2 MLP training",
-                    "Graph RAG + Bridge vectors",
-                    "SQL + chunk re-mapping",
-                    "Priority support",
-                    "Webhook callbacks",
-                ],
-                "cta": "Start Professional",
-                "popular": True,
-            },
-            {
-                "id":          "enterprise",
-                "name":        "Enterprise",
-                "price":       None,
-                "currency":    "usd",
-                "interval":    "month",
-                "description": "Unlimited scale, dedicated infrastructure, SLA",
-                "features": [
-                    "Unlimited chunks",
-                    "Unlimited workspaces",
-                    "All mapping strategies",
-                    "Custom model training",
-                    "Dedicated infrastructure",
-                    "99.9% SLA",
-                    "Dedicated support engineer",
-                    "Custom contracts",
-                ],
-                "cta": "Contact Sales",
-                "popular": False,
-            },
-        ],
+    """Return plan details from DB and Stripe publishable key for frontend."""
+    from prismrag.plans import get_all_plans
+
+    plans_db = get_all_plans()
+    def _fmt_chunks(n: int) -> str:
+        if n <= 0:
+            return "Unlimited chunks"
+        return f"{n:,} chunks / month"
+
+    plan_meta = {
+        "free":         {"name": "Free", "price": 0, "cta": "Start Free"},
+        "starter":      {"name": "Starter", "price": 4900, "cta": "Start Starter"},
+        "professional": {"name": "Professional", "price": 19900, "cta": "Start Professional", "popular": True},
+        "enterprise":   {"name": "Enterprise", "price": None, "cta": "Contact Sales"},
     }
+    plans = []
+    for pid, limits in plans_db.items():
+        meta = plan_meta.get(pid, {"name": pid.title(), "price": 0, "cta": "Select"})
+        features = [_fmt_chunks(limits["monthly_chunks"])]
+        mt = limits["max_tenants"]
+        features.append("Unlimited workspaces" if mt < 0 else f"{mt} workspace(s)")
+        if limits.get("graph_rag"):
+            features.append("Graph RAG retrieval")
+        if limits.get("tier2_mlp"):
+            features.append("Tier-2 MLP training")
+        if limits.get("bridge_vectors"):
+            features.append("Bridge vectors")
+        plans.append({
+            "id": pid,
+            "name": meta["name"],
+            "price": meta["price"],
+            "currency": "usd",
+            "interval": "month",
+            "features": features,
+            "cta": meta["cta"],
+            "popular": meta.get("popular", False),
+        })
+
+    return {"stripePublishableKey": STRIPE_PUBLISHABLE_KEY, "plans": plans}
 
 
 @router.post("/checkout")

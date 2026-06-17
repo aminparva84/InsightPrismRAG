@@ -13,7 +13,7 @@ from prismrag.auth.auth import (
 )
 from prismrag.db import get_conn, release_conn
 
-router = APIRouter(prefix="/api/auth", tags=["Auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 auth_router = router  # alias used in main.py
 
 
@@ -73,6 +73,13 @@ def register(body: RegisterIn):
             "INSERT INTO prismrag.tenant (id, name, owner_email) VALUES (%s, %s, %s)",
             (tenant_id, body.company or body.full_name or "My Workspace", body.email.lower()),
         )
+        cur.execute(
+            """
+            INSERT INTO prismrag.tenant_member (tenant_id, user_id, role)
+            VALUES (%s, %s, 'owner')
+            """,
+            (tenant_id, user_id),
+        )
         conn.commit()
     finally:
         release_conn(conn)
@@ -100,6 +107,11 @@ def login(body: LoginIn):
 
     if not row or not row[5]:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not row[2]:
+        raise HTTPException(
+            status_code=401,
+            detail="This account uses SSO. Sign in via /api/v1/auth/oidc/login",
+        )
     if not verify_password(body.password, row[2]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -116,15 +128,20 @@ def me(user: dict = Depends(get_current_user)):
 
 
 @router.post("/api-keys", response_model=APIKeyOut)
-def create_api_key(label: str = "Default", user: dict = Depends(get_current_user)):
+def create_api_key(
+    label: str = "Default",
+    scopes: str = "read,write",
+    user: dict = Depends(get_current_user),
+):
     raw, key_hash, prefix = generate_api_key()
+    scope_list = [s.strip() for s in scopes.split(",") if s.strip()] or ["read", "write"]
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO prismrag.api_key (user_id, key_hash, key_prefix, label) "
-            "VALUES (%s, %s, %s, %s)",
-            (user["id"], key_hash, prefix, label),
+            "INSERT INTO prismrag.api_key (user_id, key_hash, key_prefix, label, scopes) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (user["id"], key_hash, prefix, label, scope_list),
         )
         conn.commit()
     finally:
@@ -201,18 +218,17 @@ def usage_this_month(user: dict = Depends(get_current_user)):
             "graphRag":      row[3] if row else False,
             "bridgeVectors": row[4] if row else False,
         } if row else {}
+
+        cur.execute(
+            "SELECT COUNT(*) FROM prismrag.tenant WHERE owner_email = %s",
+            (user.get("email", ""),),
+        )
+        tenants_count = cur.fetchone()[0]
     finally:
         release_conn(conn)
 
-    from prismrag.metering.quota import PLAN_LIMITS
-    limits = PLAN_LIMITS.get(user["plan"], PLAN_LIMITS["free"])
-
-    # Count tenants owned by this user
-    cur.execute(
-        "SELECT COUNT(*) FROM prismrag.tenant WHERE owner_email = %s",
-        (user.get("email", ""),),
-    )
-    tenants_count = cur.fetchone()[0] if True else 0
+    from prismrag.plans import get_plan_limits
+    limits = get_plan_limits(user["plan"])
 
     chunks_used   = usage.get("ingest_chunk", 0)
     searches_used = usage.get("search", 0)
@@ -231,3 +247,52 @@ def usage_this_month(user: dict = Depends(get_current_user)):
         "usage": usage,
         "quota": quota,
     }
+
+
+@router.get("/oidc/login")
+def oidc_login():
+    """Redirect to OIDC provider (configure OIDC_* env vars)."""
+    from fastapi.responses import RedirectResponse
+    from prismrag.auth.oidc import build_authorize_url, oidc_enabled
+
+    if not oidc_enabled():
+        raise HTTPException(
+            status_code=501,
+            detail="OIDC not configured. Set OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_REDIRECT_URI.",
+        )
+    url, _state = build_authorize_url()
+    return RedirectResponse(url)
+
+
+@router.get("/oidc/callback", response_model=TokenOut)
+def oidc_callback(code: str, state: str):
+    """OIDC callback — exchanges code and returns JWT."""
+    from prismrag.auth.oidc import (
+        consume_state, exchange_code, find_or_create_user, oidc_enabled,
+    )
+
+    if not oidc_enabled():
+        raise HTTPException(status_code=501, detail="OIDC not configured")
+    if not consume_state(state):
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+    try:
+        claims = exchange_code(code)
+        user = find_or_create_user(claims)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    token = create_jwt(user["id"], user["email"], user["plan"])
+    return TokenOut(
+        token=token,
+        user_id=user["id"],
+        email=user["email"],
+        plan=user["plan"],
+        full_name=user.get("fullName") or "",
+    )
+
+
+@router.get("/oidc/status")
+def oidc_status():
+    from prismrag.auth.oidc import oidc_enabled
+    return {"enabled": oidc_enabled()}
