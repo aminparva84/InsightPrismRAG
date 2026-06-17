@@ -20,11 +20,16 @@ def _get_pool():
             return _pool
         from psycopg2 import pool as pg_pool
         from prismrag.config import DB_POOL_MIN, DB_POOL_MAX, DATABASE_URL
-        dsn = DATABASE_URL or os.getenv("DATABASE_URL") or os.getenv("PRISMRAG_DATABASE_URL")
+        dsn = (
+            DATABASE_URL
+            or os.getenv("PRISMRAG_DB_DSN")
+            or os.getenv("DATABASE_URL")
+            or os.getenv("PRISMRAG_DATABASE_URL")
+        )
         if not dsn:
             raise RuntimeError(
-                "PRISMRAG_DATABASE_URL environment variable is not set. "
-                "Example: postgresql://user:pass@localhost:5432/prismrag"
+                "Database URL is not set. Set PRISMRAG_DB_DSN in .env "
+                "(example: postgresql://prismrag:prismrag@localhost:5432/prismrag)"
             )
         _pool = pg_pool.ThreadedConnectionPool(DB_POOL_MIN, DB_POOL_MAX, dsn)
         return _pool
@@ -50,26 +55,56 @@ def vector_to_pg(vec) -> str:
     return '[' + ','.join(f'{float(x):.8f}' for x in vec) + ']'
 
 
+_SCHEMA_FILES = (
+    "schema.sql",
+    "auth_schema.sql",
+    "audit_schema.sql",
+    "deliberation_schema.sql",
+)
+
+
+def _execute_sql_script(cur, sql: str) -> None:
+    """Run a multi-statement SQL script (psycopg2 execute() is single-statement)."""
+    statements: list[str] = []
+    buf: list[str] = []
+    for line in sql.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("--"):
+            continue
+        buf.append(line)
+        if stripped.endswith(";"):
+            stmt = "\n".join(buf).strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+    tail = "\n".join(buf).strip()
+    if tail:
+        statements.append(tail)
+    for stmt in statements:
+        cur.execute(stmt)
+
+
 def init_schema(force: bool = False) -> None:
-    """Run schema.sql + HNSW index creation. Idempotent."""
+    """Run all PrismRAG SQL schemas. Idempotent."""
     global _schema_ready
     if _schema_ready and not force:
         return
     with _schema_lock:
         if _schema_ready and not force:
             return
-        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
-        with open(schema_path, encoding='utf-8') as f:
-            sql = f.read()
+        base = os.path.dirname(__file__)
         conn = get_conn()
         try:
             cur = conn.cursor()
-            cur.execute(sql)
+            for name in _SCHEMA_FILES:
+                path = os.path.join(base, name)
+                with open(path, encoding="utf-8") as f:
+                    _execute_sql_script(cur, f.read())
             conn.commit()
             _schema_ready = True
-            print('[PrismRAG] Schema ready')
+            print("[PrismRAG] Schema ready")
         except Exception as e:
             conn.rollback()
-            raise RuntimeError(f'PrismRAG schema init failed: {e}') from e
+            raise RuntimeError(f"PrismRAG schema init failed: {e}") from e
         finally:
             release_conn(conn)

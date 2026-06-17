@@ -15,16 +15,10 @@ from prismrag.models import (
     StrategyType,
 )
 from prismrag.pipeline.job import create_job, get_job, run_job
-from prismrag.db import init_schema
 from prismrag.auth.auth import get_current_user
 from prismrag.metering.quota import check_and_record, check_feature, metered, PLAN_LIMITS
 
 router = APIRouter(prefix="/api/prismrag", tags=["PrismRAG"])
-
-
-@router.on_event("startup")
-async def _startup():
-    init_schema()
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

@@ -15,14 +15,16 @@
   <meta property="og:url" content="https://prismrag.io/"/>
   <meta property="og:title" content="PrismRAG — Enterprise Knowledge Graph & AI Deliberation Platform"/>
   <meta property="og:description" content="Define your own knowledge graph. Run multi-domain AI deliberation. Enterprise-grade semantic search and reasoning, API-first and MCP-native."/>
-  <meta property="og:image" content="https://prismrag.io/static/og-image.png"/>
+  <meta property="og:image" content="https://prismrag.io/static/img/og-image.svg"/>
   <meta property="og:site_name" content="PrismRAG"/>
 
   <!-- ── Twitter Card ──────────────────────────────────────────────────────── -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="PrismRAG — Enterprise Knowledge Graph & AI Deliberation"/>
   <meta name="twitter:description" content="Stop letting documents define your knowledge graph. PrismRAG lets you define it. Plus: multi-domain AI deliberation for deep, complex questions."/>
-  <meta name="twitter:image" content="https://prismrag.io/static/og-image.png"/>
+  <meta name="twitter:image" content="https://prismrag.io/static/img/og-image.svg"/>
+
+  <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml"/>
 
   <!-- ── AI / LLM crawler hints ────────────────────────────────────────────── -->
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large"/>
@@ -224,7 +226,7 @@
 <nav class="nav" id="nav">
   <div class="nav-inner">
     <a href="/" class="logo">
-      <span class="logo-prism">⬡</span>
+      <img src="/static/img/logo.svg" alt="" class="logo-img" width="32" height="32"/>
       <span class="logo-text">PrismRAG</span>
     </a>
     <ul class="nav-links">
@@ -239,6 +241,20 @@
       <a href="/login.html" class="btn-ghost">Sign in</a>
       <a href="/register.html" class="btn-primary">Start free</a>
     </div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-mobile" id="nav-mobile" aria-hidden="true">
+    <a href="#products">Products</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#deliberation">Deliberation</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/docs" target="_blank">API Docs</a>
+    <div class="nav-mobile-cta">
+      <a href="/login.html" class="btn-ghost">Sign in</a>
+      <a href="/register.html" class="btn-primary">Start free</a>
+    </div>
   </div>
 </nav>
 
@@ -249,42 +265,75 @@
     <div class="prism-glow"></div>
   </div>
   <div class="container">
-    <div class="hero-badge">Two enterprise AI products — one platform</div>
-    <h1 class="hero-h1">
-      Your data.<br/>
-      <span class="gradient-text">Your intelligence.</span>
-    </h1>
-    <p class="hero-sub">
-      <strong>PrismRAG</strong> — define your own knowledge graph. Your rules, your categories, your semantic model.<br/>
-      <strong>Deliberation</strong> — get 7 AI domain experts to debate your hardest questions, then synthesise them.
-    </p>
-    <div class="hero-actions">
-      <a href="/register.html" class="btn-hero-primary">
-        Start building free
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
-      <a href="#products" class="btn-hero-ghost">See the products</a>
-    </div>
-    <div class="hero-code-block">
-      <div class="code-tabs">
-        <span class="code-tab active">Knowledge Graph</span>
-        <span class="code-tab">Deliberation</span>
-      </div>
-      <pre class="code-snippet"><span class="c-comment"># Define your mapping — PrismRAG embeds everything into it</span>
+    <div class="hero-layout">
+      <div class="hero-copy">
+        <div class="hero-badge">Enterprise AI platform</div>
+        <h1 class="hero-h1">
+          Stop letting documents<br/>
+          <span class="gradient-text">define your knowledge graph.</span>
+        </h1>
+        <p class="hero-sub">
+          <strong>PrismRAG</strong> maps your data into <em>your</em> semantic model — auditable rules, personal ML, millisecond search.
+          <strong>Deliberation</strong> runs seven domain experts in parallel, then synthesises agreement, conflict, and insight.
+        </p>
+        <div class="hero-actions">
+          <a href="/register.html" class="btn-hero-primary">
+            Start free — no card required
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="#products" class="btn-hero-ghost">Explore products</a>
+        </div>
+        <div class="hero-code-block">
+          <div class="code-tabs">
+            <span class="code-tab active" data-tab="graph">Knowledge Graph</span>
+            <span class="code-tab" data-tab="delib">Deliberation</span>
+          </div>
+          <pre class="code-snippet" id="code-snippet"><span class="c-comment"># Your mapping — not document statistics</span>
 <span class="c-keyword">POST</span> /api/prismrag/jobs
 
 {
-  <span class="c-key">"strategy"</span>: <span class="c-str">"mlp"</span>,           <span class="c-comment">// Tier-2: trains your personal PyTorch MLP</span>
+  <span class="c-key">"strategy"</span>: <span class="c-str">"mlp"</span>,
   <span class="c-key">"mapping"</span>: {
     <span class="c-key">"categories"</span>: [
       { <span class="c-key">"slug"</span>: <span class="c-str">"risk"</span>,   <span class="c-key">"label"</span>: <span class="c-str">"Risk &amp; Compliance"</span> },
-      { <span class="c-key">"slug"</span>: <span class="c-str">"growth"</span>, <span class="c-key">"label"</span>: <span class="c-str">"Growth &amp; Opportunity"</span> }
+      { <span class="c-key">"slug"</span>: <span class="c-str">"growth"</span>, <span class="c-key">"label"</span>: <span class="c-str">"Growth"</span> }
     ],
     <span class="c-key">"rules"</span>: [
       { <span class="c-key">"word"</span>: <span class="c-str">"volatility"</span>, <span class="c-key">"category_slug"</span>: <span class="c-str">"risk"</span> }
     ]
   }
 }</pre>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <img src="/static/img/hero-graph.svg" alt="Knowledge graph with your categories at the center" width="480" height="388"/>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TRUST BAR ─────────────────────────────────────────────────────────── -->
+<section class="trust-bar" aria-label="Platform highlights">
+  <div class="trust-inner">
+    <div class="trust-item">
+      <div class="trust-value">API-first</div>
+      <div class="trust-label">REST + webhooks</div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-value">9 MCP tools</div>
+      <div class="trust-label">Agent-native</div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-value">&lt;50ms</div>
+      <div class="trust-label">HNSW vector search</div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-value">7 experts</div>
+      <div class="trust-label">Parallel deliberation</div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-value">100%</div>
+      <div class="trust-label">Audit traceability</div>
     </div>
   </div>
 </section>
@@ -293,24 +342,40 @@
 <section class="how-section" id="products" style="padding:80px 0; background:#07070f;">
   <div class="container">
     <div class="section-label">Two Products</div>
-    <h2 class="section-h2">Enterprise AI built on your knowledge, not the internet's</h2>
-    <p class="section-sub">Both products are available in the same plan. Use one, or combine them for a full enterprise knowledge + reasoning platform.</p>
+    <h2 class="section-h2">Knowledge you control. Reasoning you can trust.</h2>
+    <p class="section-sub">One platform for building enterprise knowledge graphs and running multi-domain AI deliberation — included on every plan.</p>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px;" class="products-overview-grid">
-      <div class="feature-card" style="border-color:rgba(108,99,255,.3);padding:36px 28px;">
-        <div style="font-size:32px;margin-bottom:16px;">⬡</div>
-        <h3 style="font-size:20px;margin-bottom:12px;">PrismRAG</h3>
-        <p style="margin-bottom:16px;">Enterprise semantic re-mapping engine. You define which words belong to which categories. A personal PyTorch MLP learns your boundaries and generalises them to new vocabulary. Graph RAG retrieval runs on your graph, not a statistical one.</p>
-        <div style="margin-top:16px;font-size:13px;color:#6c63ff;font-weight:600;">Knowledge graph · Vector search · MLP training</div>
-        <a href="#how-it-works" style="display:inline-block;margin-top:20px;font-size:13px;color:#aaa;text-decoration:underline;">How it works →</a>
-      </div>
-      <div class="feature-card" style="border-color:rgba(50,205,120,.25);padding:36px 28px;">
-        <div style="font-size:32px;margin-bottom:16px;">◈</div>
-        <h3 style="font-size:20px;margin-bottom:12px;">Deliberation</h3>
-        <p style="margin-bottom:16px;">Multi-domain AI deliberation for complex questions. The system automatically discovers 7 relevant domains, runs parallel expert queries in each, and synthesises agreements, conflicts, and unique insights. Like hiring 7 consultants and an arbiter, in 20 seconds, for $0.25.</p>
-        <div style="margin-top:16px;font-size:13px;color:#32cd78;font-weight:600;">Domain discovery · Expert synthesis · Conflict detection</div>
-        <a href="#deliberation" style="display:inline-block;margin-top:20px;font-size:13px;color:#aaa;text-decoration:underline;">See the pipeline →</a>
-      </div>
+    <div class="products-overview-grid">
+      <article class="product-card prism">
+        <div class="product-card-visual">
+          <img src="/static/img/hero-graph.svg" alt="PrismRAG knowledge graph visualization" loading="lazy"/>
+        </div>
+        <div class="product-card-body">
+          <h3>PrismRAG</h3>
+          <p>Define which concepts belong together. Train a personal MLP on your rules. Search a graph built from your domain expertise — not document co-occurrence.</p>
+          <div class="product-tags">
+            <span class="product-tag">Custom mapping</span>
+            <span class="product-tag">PyTorch MLP</span>
+            <span class="product-tag">Graph RAG</span>
+          </div>
+          <a href="#how-it-works" class="product-link">See how it works →</a>
+        </div>
+      </article>
+      <article class="product-card delib">
+        <div class="product-card-visual">
+          <img src="/static/img/hero-deliberation.svg" alt="Deliberation multi-expert pipeline" loading="lazy"/>
+        </div>
+        <div class="product-card-body">
+          <h3>Deliberation</h3>
+          <p>Ask one hard question. Seven domain experts answer in parallel. A Master Deliberator surfaces agreements, real conflicts, and insights no single model would find.</p>
+          <div class="product-tags">
+            <span class="product-tag">7 parallel experts</span>
+            <span class="product-tag">Conflict detection</span>
+            <span class="product-tag">MCP-native</span>
+          </div>
+          <a href="#deliberation" class="product-link">See the pipeline →</a>
+        </div>
+      </article>
     </div>
   </div>
 </section>
@@ -318,9 +383,36 @@
 <!-- ── PROBLEM / SOLUTION ────────────────────────────────────────────────── -->
 <section class="problem-section" id="problem">
   <div class="container">
-    <div class="section-label">The Graph RAG Problem</div>
-    <h2 class="section-h2">Who should control your knowledge graph?</h2>
-    <p class="section-sub">Standard Graph RAG derives relationships from document co-occurrence. The corpus decides who connects to who — not your team.</p>
+    <div class="section-label">Why PrismRAG</div>
+    <h2 class="section-h2">Your team should own the graph — not the corpus</h2>
+    <p class="section-sub">Graph RAG infers relationships from how often words appear together. PrismRAG embeds data into the structure you define.</p>
+
+    <div class="compare-visual">
+      <div class="compare-diagram bad">
+        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="40" cy="40" r="12" fill="#ef4444" opacity="0.6"/><circle cx="100" cy="30" r="12" fill="#ef4444" opacity="0.6"/>
+          <circle cx="160" cy="50" r="12" fill="#ef4444" opacity="0.6"/><circle cx="80" cy="90" r="12" fill="#ef4444" opacity="0.6"/>
+          <line x1="40" y1="40" x2="100" y2="30" stroke="#ef4444" stroke-width="1" opacity="0.4"/>
+          <line x1="100" y1="30" x2="160" y2="50" stroke="#ef4444" stroke-width="1" opacity="0.4"/>
+          <line x1="40" y1="40" x2="80" y2="90" stroke="#ef4444" stroke-width="1" opacity="0.4"/>
+          <text x="100" y="115" text-anchor="middle" fill="#64748b" font-size="9" font-family="system-ui">Random co-occurrence links</text>
+        </svg>
+        <div class="compare-diagram-label">Standard Graph RAG</div>
+      </div>
+      <div class="compare-diagram good">
+        <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="100" cy="60" r="18" fill="#6366f1" opacity="0.3" stroke="#818cf8" stroke-width="1.5"/>
+          <circle cx="45" cy="35" r="10" fill="#2dd4bf"/><circle cx="155" cy="35" r="10" fill="#8b5cf6"/>
+          <circle cx="45" cy="85" r="10" fill="#38bdf8"/><circle cx="155" cy="85" r="10" fill="#34d399"/>
+          <line x1="100" y1="60" x2="45" y2="35" stroke="#34d399" stroke-width="1.5" opacity="0.6"/>
+          <line x1="100" y1="60" x2="155" y2="35" stroke="#34d399" stroke-width="1.5" opacity="0.6"/>
+          <line x1="100" y1="60" x2="45" y2="85" stroke="#34d399" stroke-width="1.5" opacity="0.6"/>
+          <line x1="100" y1="60" x2="155" y2="85" stroke="#34d399" stroke-width="1.5" opacity="0.6"/>
+          <text x="100" y="115" text-anchor="middle" fill="#64748b" font-size="9" font-family="system-ui">Your mapping at the center</text>
+        </svg>
+        <div class="compare-diagram-label">PrismRAG</div>
+      </div>
+    </div>
 
     <div class="compare-grid">
       <div class="compare-card bad">
@@ -361,7 +453,8 @@
 <section class="how-section" id="how-it-works">
   <div class="container">
     <div class="section-label">How PrismRAG Works</div>
-    <h2 class="section-h2">Three steps from input to intelligent retrieval</h2>
+    <h2 class="section-h2">From your rules to intelligent retrieval</h2>
+    <p class="section-sub">Three steps. Full audit trail. No black-box graph construction.</p>
 
     <div class="steps-grid">
       <div class="step-card">
@@ -498,13 +591,16 @@
 <!-- ── DELIBERATION PRODUCT ───────────────────────────────────────────────── -->
 <section class="delib-section" id="deliberation">
   <div class="container">
-    <div class="section-label" style="color:#32cd78;">New Product</div>
+    <div class="section-label" style="color:#32cd78;">Deliberation</div>
     <div class="mcp-badge">MCP-native · API-first · KB-grounded</div>
-    <h2 class="section-h2">Deliberation</h2>
+    <h2 class="section-h2">Seven experts. One synthesised answer.</h2>
     <p class="section-sub">
-      Complex questions span multiple domains. Standard LLMs answer with one perspective.<br/>
-      Deliberation runs <strong>7 domain experts in parallel</strong>, then synthesises what they agree on, where they conflict, and what each uniquely noticed.
+      Complex decisions span finance, legal, ops, and more. Deliberation discovers relevant domains, queries them in parallel, and surfaces <strong>real disagreements</strong> — not hedged single-model prose.
     </p>
+
+    <div style="max-width:640px;margin:0 auto 40px;">
+      <img src="/static/img/hero-deliberation.svg" alt="Deliberation pipeline: question to domain experts to synthesis" style="width:100%;height:auto;" loading="lazy"/>
+    </div>
 
     <!-- Pipeline visual -->
     <div class="pipeline-visual">
@@ -547,37 +643,37 @@
     <h3 style="font-size:24px;font-weight:700;color:#e8e8f0;margin-bottom:8px;">Real questions that need real multi-domain answers</h3>
     <div class="use-case-grid">
       <div class="use-case-card">
-        <div class="uc-icon">⚖️</div>
+        <div class="uc-icon-wrap">&#9878;</div>
         <h4>M&amp;A Analysis</h4>
         <p>Finance, Antitrust, HR, Technology Integration, Market Strategy, Regulatory, and Culture domains each weigh in — then conflicts are surfaced.</p>
         <div class="uc-savings">Replaces $50K–$500K consulting engagement</div>
       </div>
       <div class="use-case-card">
-        <div class="uc-icon">🏥</div>
+        <div class="uc-icon-wrap">+</div>
         <h4>Medical Differential</h4>
         <p>Cardiology, Neurology, Endocrinology, and Psychiatry all examine the same symptom set independently before synthesis.</p>
         <div class="uc-savings">Replaces $500–$3,000 specialist consultation</div>
       </div>
       <div class="use-case-card">
-        <div class="uc-icon">📋</div>
+        <div class="uc-icon-wrap">&#9670;</div>
         <h4>Regulatory Compliance</h4>
         <p>GDPR, CCPA, common law, and sector regulations examined in parallel. Conflicts between frameworks are explicitly surfaced.</p>
         <div class="uc-savings">Replaces $2,000–$10,000 legal research memo</div>
       </div>
       <div class="use-case-card">
-        <div class="uc-icon">🌏</div>
+        <div class="uc-icon-wrap">&#9672;</div>
         <h4>Market Entry Strategy</h4>
         <p>Market Entry, Regulatory, Cultural, Supply Chain, Competitive, Financial, and Political Risk — all examined automatically.</p>
         <div class="uc-savings">Replaces $50,000–$200,000 market research report</div>
       </div>
       <div class="use-case-card">
-        <div class="uc-icon">🛡️</div>
+        <div class="uc-icon-wrap">&#9673;</div>
         <h4>Insurance Risk Assessment</h4>
         <p>Actuarial, Legal, Environmental, Behavioral, and Operational domains assess the same risk from different expert angles.</p>
         <div class="uc-savings">Replaces $5,000–$50,000 risk assessment</div>
       </div>
       <div class="use-case-card">
-        <div class="uc-icon">🤖</div>
+        <div class="uc-icon-wrap">&#9881;</div>
         <h4>AI Agent Reasoning</h4>
         <p>Connect via MCP. Your Claude/ChatGPT agent calls <code>deliberate(question)</code> and gets a full multi-domain synthesis automatically.</p>
         <div class="uc-savings">MCP-native: no custom orchestration needed</div>
@@ -809,9 +905,9 @@
 <section class="cta-section">
   <div class="container">
     <div class="cta-inner">
-      <div class="cta-prism">⬡</div>
+      <div class="cta-prism"><img src="/static/img/logo.svg" alt="" width="56" height="56" style="margin:0 auto;display:block;"/></div>
       <h2>Ready to own your knowledge graph?</h2>
-      <p>Start with 5,000 free chunks and 5 free deliberations — no credit card required.</p>
+      <p>5,000 free chunks and 5 free deliberations every month. No credit card. Full API access from day one.</p>
       <div class="cta-actions">
         <a href="/register.html" class="btn-hero-primary">Start building free</a>
         <a href="mailto:sales@prismrag.io" class="btn-hero-ghost">Talk to sales</a>
@@ -826,10 +922,10 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <a href="/" class="logo">
-          <span class="logo-prism">⬡</span>
+          <img src="/static/img/logo.svg" alt="" class="logo-img" width="32" height="32"/>
           <span class="logo-text">PrismRAG</span>
         </a>
-        <p>Enterprise semantic re-mapping and multi-domain AI deliberation. Your mapping, your vectors, your knowledge graph.</p>
+        <p>Enterprise semantic mapping and multi-domain AI deliberation. Your rules, your graph, your reasoning.</p>
         <p class="footer-tagline">Powered by <a href="https://insightits.com" target="_blank">Insight IT Solutions</a></p>
       </div>
       <div class="footer-col">

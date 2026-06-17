@@ -1,0 +1,21 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: insightprismrag-db
+    environment:
+      POSTGRES_USER: prismrag
+      POSTGRES_PASSWORD: prismrag
+      POSTGRES_DB: prismrag
+    ports:
+      - "5432:5432"
+    volumes:
+      - prismrag_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prismrag -d prismrag"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+volumes:
+  prismrag_pgdata:

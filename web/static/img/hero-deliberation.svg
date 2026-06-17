@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 320" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="hd-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <!-- Question -->
+  <rect x="180" y="12" width="160" height="44" rx="10" fill="rgba(99,102,241,0.12)" stroke="rgba(129,140,248,0.4)" stroke-width="1.5"/>
+  <text x="260" y="38" text-anchor="middle" fill="#e2e8f0" font-size="12" font-family="system-ui,sans-serif" font-weight="600">Your question</text>
+  <!-- Arrows down -->
+  <path d="M260 56v24M245 68l15 12 15-12" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+  <!-- Domain experts -->
+  <g>
+    <rect x="24" y="96" width="88" height="72" rx="10" fill="rgba(99,102,241,0.08)" stroke="rgba(99,102,241,0.25)"/>
+    <text x="68" y="128" text-anchor="middle" fill="#818cf8" font-size="20">$</text>
+    <text x="68" y="152" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui">Finance</text>
+    <rect x="128" y="96" width="88" height="72" rx="10" fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.25)"/>
+    <text x="172" y="128" text-anchor="middle" fill="#c084fc" font-size="20">&#9878;</text>
+    <text x="172" y="152" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui">Legal</text>
+    <rect x="232" y="96" width="88" height="72" rx="10" fill="rgba(45,212,191,0.08)" stroke="rgba(45,212,191,0.25)"/>
+    <text x="276" y="128" text-anchor="middle" fill="#34d399" font-size="20">+</text>
+    <text x="276" y="152" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui">Medical</text>
+    <rect x="336" y="96" width="88" height="72" rx="10" fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.25)"/>
+    <text x="380" y="128" text-anchor="middle" fill="#38bdf8" font-size="20">&#9670;</text>
+    <text x="380" y="152" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui">Strategy</text>
+    <rect x="440" y="96" width="68" height="72" rx="10" fill="rgba(236,72,153,0.08)" stroke="rgba(236,72,153,0.25)"/>
+    <text x="474" y="128" text-anchor="middle" fill="#f472b6" font-size="11" font-family="system-ui" font-weight="600">+3</text>
+    <text x="474" y="152" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="system-ui">more</text>
+  </g>
+  <!-- Converge -->
+  <path d="M68 168v20M172 168v20M276 168v20M380 168v20M474 168v20" stroke="url(#hd-grad)" stroke-width="1" opacity="0.4"/>
+  <path d="M68 188h406" stroke="url(#hd-grad)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M260 188v24M245 200l15 12 15-12" stroke="#34d399" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Synthesis -->
+  <rect x="120" y="220" width="280" height="88" rx="12" fill="rgba(52,211,153,0.06)" stroke="rgba(52,211,153,0.35)" stroke-width="1.5"/>
+  <text x="260" y="248" text-anchor="middle" fill="#34d399" font-size="11" font-family="system-ui,sans-serif" font-weight="700" letter-spacing="0.08em">MASTER DELIBERATOR</text>
+  <text x="140" y="272" fill="#94a3b8" font-size="10" font-family="system-ui">Agreements</text>
+  <text x="140" y="290" fill="#64748b" font-size="9" font-family="system-ui">Finance + Strategy align on synergy</text>
+  <text x="300" y="272" fill="#f87171" font-size="10" font-family="system-ui">Conflicts</text>
+  <text x="300" y="290" fill="#64748b" font-size="9" font-family="system-ui">Legal flags 40% block risk</text>
+</svg>

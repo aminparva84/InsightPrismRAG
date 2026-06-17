@@ -1,48 +1,62 @@
 /* PrismRAG — Landing page interactions */
 
-// ── Nav scroll effect ──────────────────────────────────────────────────────
 const nav = document.getElementById('nav');
+const navToggle = document.getElementById('nav-toggle');
+const navMobile = document.getElementById('nav-mobile');
+
+// ── Nav scroll effect ──────────────────────────────────────────────────────
 window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 20);
 }, { passive: true });
 
+// ── Mobile menu ────────────────────────────────────────────────────────────
+if (navToggle && navMobile) {
+  navToggle.addEventListener('click', () => {
+    const open = navMobile.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    navMobile.setAttribute('aria-hidden', open ? 'false' : 'true');
+  });
+  navMobile.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      navMobile.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+      navMobile.setAttribute('aria-hidden', 'true');
+    });
+  });
+}
+
 // ── Code tab switcher ──────────────────────────────────────────────────────
 const snippets = {
-  Intake: `<span class="c-comment"># Send your mapping + data — PrismRAG does the rest</span>
+  graph: `<span class="c-comment"># Your mapping — not document statistics</span>
 <span class="c-keyword">POST</span> /api/prismrag/jobs
 
 {
-  <span class="c-key">"tenant_id"</span>: <span class="c-str">"your-tenant-uuid"</span>,
-  <span class="c-key">"source_type"</span>: <span class="c-str">"file"</span>,
   <span class="c-key">"strategy"</span>: <span class="c-str">"mlp"</span>,
   <span class="c-key">"mapping"</span>: {
     <span class="c-key">"categories"</span>: [
-      { <span class="c-key">"slug"</span>: <span class="c-str">"risk"</span>, <span class="c-key">"label"</span>: <span class="c-str">"Risk &amp; Compliance"</span> },
-      { <span class="c-key">"slug"</span>: <span class="c-str">"growth"</span>, <span class="c-key">"label"</span>: <span class="c-str">"Growth &amp; Opportunity"</span> }
+      { <span class="c-key">"slug"</span>: <span class="c-str">"risk"</span>,   <span class="c-key">"label"</span>: <span class="c-str">"Risk &amp; Compliance"</span> },
+      { <span class="c-key">"slug"</span>: <span class="c-str">"growth"</span>, <span class="c-key">"label"</span>: <span class="c-str">"Growth"</span> }
     ],
     <span class="c-key">"rules"</span>: [
-      { <span class="c-key">"word"</span>: <span class="c-str">"volatility"</span>, <span class="c-key">"category_slug"</span>: <span class="c-str">"risk"</span> },
-      { <span class="c-key">"word"</span>: <span class="c-str">"alpha"</span>, <span class="c-key">"category_slug"</span>: <span class="c-str">"growth"</span> }
+      { <span class="c-key">"word"</span>: <span class="c-str">"volatility"</span>, <span class="c-key">"category_slug"</span>: <span class="c-str">"risk"</span> }
     ]
   }
 }`,
-  Search: `<span class="c-comment"># Query your re-mapped knowledge graph</span>
-<span class="c-keyword">POST</span> /api/prismrag/search
+  delib: `<span class="c-comment"># One call — full 3-phase deliberation pipeline</span>
+<span class="c-keyword">POST</span> /api/deliberation/sessions
 
 {
-  <span class="c-key">"tenant_id"</span>: <span class="c-str">"your-tenant-uuid"</span>,
-  <span class="c-key">"query"</span>: <span class="c-str">"quarterly risk exposure"</span>,
-  <span class="c-key">"top_k"</span>: <span class="c-str">10</span>
+  <span class="c-key">"question"</span>:     <span class="c-str">"Should we acquire CompetitorX in Q4?"</span>,
+  <span class="c-key">"domain_count"</span>: 7,
+  <span class="c-key">"tenant_id"</span>:    <span class="c-str">"your-workspace"</span>
 }
 
-<span class="c-comment">// Response — results reflect YOUR mapping, not statistics</span>
+<span class="c-comment">// Returns agreements, conflicts, unique insights, final answer</span>
 {
-  <span class="c-key">"retrieval_mode"</span>: <span class="c-str">"graph_rag"</span>,
-  <span class="c-key">"communities"</span>: [{ <span class="c-key">"label"</span>: <span class="c-str">"Risk &amp; Compliance"</span>, <span class="c-key">"weight"</span>: <span class="c-str">0.82</span> }],
-  <span class="c-key">"hits"</span>: [
-    { <span class="c-key">"chunk_text"</span>: <span class="c-str">"volatility exposure in Q3..."</span>,
-      <span class="c-key">"category_slug"</span>: <span class="c-str">"risk"</span>, <span class="c-key">"score"</span>: <span class="c-str">0.94</span> }
-  ]
+  <span class="c-key">"agreements"</span>:      <span class="c-str">"Finance &amp; Strategy see 12–18% synergy..."</span>,
+  <span class="c-key">"conflicts"</span>:       <span class="c-str">"Antitrust: 40% block probability"</span>,
+  <span class="c-key">"final_answer"</span>:    <span class="c-str">"Strong fit, material regulatory risk..."</span>,
+  <span class="c-key">"confidence"</span>:      0.81
 }`
 };
 
@@ -50,8 +64,9 @@ document.querySelectorAll('.code-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    const snippet = document.querySelector('.code-snippet');
-    if (snippet) snippet.innerHTML = snippets[tab.textContent.trim()] || '';
+    const key = tab.dataset.tab;
+    const snippet = document.getElementById('code-snippet') || document.querySelector('.code-snippet');
+    if (snippet && key && snippets[key]) snippet.innerHTML = snippets[key];
   });
 });
 
@@ -66,10 +81,10 @@ const observer = new IntersectionObserver((entries) => {
 }, { threshold: 0.08 });
 
 document.querySelectorAll(
-  '.step-card, .feature-card, .pricing-card, .compare-card'
+  '.step-card, .feature-card, .pricing-card, .compare-card, .product-card, .use-case-card, .ml-card, .stat-card'
 ).forEach(el => {
-  el.style.opacity    = '0';
-  el.style.transform  = 'translateY(24px)';
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(24px)';
   el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
   observer.observe(el);
 });

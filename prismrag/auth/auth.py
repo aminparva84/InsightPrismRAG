@@ -11,7 +11,11 @@ from typing import Any
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-JWT_SECRET  = os.getenv("PRISMRAG_JWT_SECRET", secrets.token_hex(32))
+JWT_SECRET  = (
+    os.getenv("PRISMRAG_JWT_SECRET")
+    or os.getenv("JWT_SECRET")
+    or secrets.token_hex(32)
+)
 JWT_ALGO    = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("PRISMRAG_JWT_EXPIRE_HOURS", "72"))
 

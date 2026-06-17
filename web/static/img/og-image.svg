@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#06090f"/>
+  <defs>
+    <linearGradient id="og-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+  </defs>
+  <circle cx="900" cy="200" r="280" fill="url(#og-grad)" opacity="0.12"/>
+  <circle cx="1050" cy="450" r="180" fill="#8b5cf6" opacity="0.08"/>
+  <path d="M180 120L280 178V294L180 352L80 294V178L180 120Z" stroke="url(#og-grad)" stroke-width="4" fill="rgba(99,102,241,0.15)"/>
+  <text x="80" y="420" fill="#f1f5f9" font-size="56" font-family="system-ui,sans-serif" font-weight="800">PrismRAG</text>
+  <text x="80" y="490" fill="#94a3b8" font-size="28" font-family="system-ui,sans-serif">Your knowledge graph. Your rules. Your AI.</text>
+</svg>

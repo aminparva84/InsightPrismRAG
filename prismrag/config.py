@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DATABASE_URL: str = os.getenv("PRISMRAG_DATABASE_URL", "")
+DATABASE_URL: str = os.getenv("PRISMRAG_DB_DSN") or os.getenv("PRISMRAG_DATABASE_URL", "")
 DB_POOL_MIN: int = int(os.getenv("PRISMRAG_DB_POOL_MIN", "2"))
 DB_POOL_MAX: int = int(os.getenv("PRISMRAG_DB_POOL_MAX", "10"))
 
