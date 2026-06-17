@@ -280,10 +280,96 @@ class ScimTokenOut(BaseModel):
     scim_base_url: str
 
 
+class OrgOut(BaseModel):
+    organization_id: str
+    name: str
+    slug: str
+    data_region: str
+    scim_enabled: bool
+    mfa_required: bool
+    cmek_enabled: bool
+
+
+class PatchOrgIn(BaseModel):
+    mfa_required: bool | None = None
+    scim_enabled: bool | None = None
+
+
 def register_scim_admin_routes(auth_router):
     """Attach org/SCIM admin endpoints to auth router."""
     from prismrag.auth.auth import get_current_user, require_plan
     from prismrag.regions import validate_region
+
+    def _load_user_org(user_id: str) -> tuple | None:
+        from prismrag.db import get_conn, release_conn
+
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT o.id::text, o.name, o.slug, o.data_region, o.scim_enabled,
+                       o.mfa_required, o.cmek_enabled
+                FROM prismrag.user_account u
+                JOIN prismrag.organization o ON o.id = u.organization_id
+                WHERE u.id = %s
+                """,
+                (user_id,),
+            )
+            return cur.fetchone()
+        finally:
+            release_conn(conn)
+
+    @auth_router.get("/organizations/me", response_model=OrgOut)
+    def get_my_organization(user: dict = Depends(get_current_user)):
+        row = _load_user_org(user["id"])
+        if not row:
+            raise HTTPException(status_code=404, detail="No organization linked to this account")
+        return OrgOut(
+            organization_id=row[0],
+            name=row[1],
+            slug=row[2],
+            data_region=row[3],
+            scim_enabled=row[4],
+            mfa_required=row[5],
+            cmek_enabled=row[6],
+        )
+
+    @auth_router.patch("/organizations/me", response_model=OrgOut)
+    def patch_my_organization(
+        body: PatchOrgIn,
+        user: dict = Depends(require_plan("enterprise")),
+    ):
+        from prismrag.db import get_conn, release_conn
+
+        row = _load_user_org(user["id"])
+        if not row:
+            raise HTTPException(status_code=404, detail="No organization linked to this account")
+        org_id = row[0]
+
+        updates = []
+        params: list = []
+        if body.mfa_required is not None:
+            updates.append("mfa_required = %s")
+            params.append(body.mfa_required)
+        if body.scim_enabled is not None:
+            updates.append("scim_enabled = %s")
+            params.append(body.scim_enabled)
+        if not updates:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        params.append(org_id)
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE prismrag.organization SET {', '.join(updates)}, updated_at = now() WHERE id = %s",
+                params,
+            )
+            conn.commit()
+        finally:
+            release_conn(conn)
+        return get_my_organization(user)
 
     @auth_router.post("/organizations", status_code=201)
     def create_organization(

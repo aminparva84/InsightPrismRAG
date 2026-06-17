@@ -34,6 +34,12 @@
       <a href="#" class="nav-item" data-section="billing">
         <span class="nav-icon">◇</span> Billing
       </a>
+      <a href="#" class="nav-item" data-section="security">
+        <span class="nav-icon">◐</span> Security
+      </a>
+      <a href="#" class="nav-item nav-enterprise" data-section="enterprise" style="display:none">
+        <span class="nav-icon">⬢</span> Enterprise
+      </a>
     </nav>
   </div>
   <div class="sidebar-bottom">
@@ -259,6 +265,138 @@ curl -X POST https://api.prismrag.io/api/prismrag/search \
 
     <div class="pricing-grid dash-pricing" id="billing-plans">
       <!-- injected by JS -->
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section class="dash-section" id="sec-security">
+    <div class="dash-header">
+      <h1>Security</h1>
+      <p>Two-factor authentication and account protection</p>
+    </div>
+
+    <div class="dash-card" id="mfa-card">
+      <div class="card-header">
+        <h2>Two-factor authentication (TOTP)</h2>
+        <span class="badge badge-gray" id="mfa-status-badge">Checking…</span>
+      </div>
+      <p class="card-hint" id="mfa-policy-hint" style="display:none"></p>
+
+      <div id="mfa-disabled-panel">
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px">
+          Protect your account with an authenticator app (Google Authenticator, Authy, 1Password, etc.).
+        </p>
+        <button class="btn-sm-primary" id="mfa-start-btn">Enable MFA</button>
+      </div>
+
+      <div id="mfa-enroll-panel" style="display:none">
+        <p style="font-size:0.9rem;color:var(--text-muted)">Scan this QR code, then enter the 6-digit code to confirm.</p>
+        <div class="qr-enroll" id="mfa-qr-wrap"></div>
+        <p class="secret-mono" id="mfa-secret-display" style="display:none"></p>
+        <div class="field" style="max-width:220px;margin-top:16px">
+          <label>Verification code</label>
+          <input type="text" id="mfa-enroll-code" inputmode="numeric" maxlength="6" placeholder="000000"/>
+        </div>
+        <button class="btn-sm-primary" id="mfa-confirm-btn">Confirm MFA</button>
+        <button class="btn-sm-ghost" id="mfa-enroll-cancel">Cancel</button>
+      </div>
+
+      <div id="mfa-enabled-panel" style="display:none">
+        <p style="color:var(--text-muted);font-size:0.9rem">MFA is active on your account.</p>
+        <div id="backup-codes-box" class="secret-mono" style="display:none;margin:12px 0"></div>
+        <button class="btn-sm-ghost" id="mfa-disable-btn" style="margin-top:12px;color:#f87171">Disable MFA</button>
+      </div>
+    </div>
+
+    <div class="dash-card" style="margin-top:20px">
+      <div class="card-header"><h2>Password</h2></div>
+      <p style="font-size:0.9rem;color:var(--text-muted)">
+        <a href="/forgot-password.html">Send a password reset email</a> to change your password.
+      </p>
+    </div>
+  </section>
+
+  <!-- ENTERPRISE -->
+  <section class="dash-section" id="sec-enterprise">
+    <div class="dash-header">
+      <h1>Enterprise</h1>
+      <p>Organization, SCIM provisioning, and encryption settings</p>
+    </div>
+
+    <div class="dash-card" id="org-none-card">
+      <div class="card-header"><h2>Organization</h2></div>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:16px">
+        Create an organization to enable SCIM provisioning, org-wide MFA policy, and CMEK.
+      </p>
+      <div class="field-row" style="max-width:520px">
+        <div class="field">
+          <label>Organization name</label>
+          <input type="text" id="org-name-input" placeholder="Acme Corp"/>
+        </div>
+        <div class="field">
+          <label>Slug</label>
+          <input type="text" id="org-slug-input" placeholder="acme-corp" pattern="[a-z0-9-]+"/>
+        </div>
+      </div>
+      <div class="field" style="max-width:240px">
+        <label>Data region</label>
+        <select id="org-region-input"></select>
+      </div>
+      <button class="btn-sm-primary" id="org-create-btn" style="margin-top:12px">Create organization</button>
+    </div>
+
+    <div id="org-settings-wrap" style="display:none">
+      <div class="dash-card">
+        <div class="card-header">
+          <h2 id="org-title">Organization</h2>
+          <span class="badge badge-blue" id="org-region-badge">us-east</span>
+        </div>
+        <div class="stat-row" style="margin-top:12px">
+          <div class="stat-card">
+            <span class="stat-label-sm">SCIM</span>
+            <span class="stat-value" id="org-scim-status">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label-sm">MFA required</span>
+            <span class="stat-value" id="org-mfa-status">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label-sm">CMEK</span>
+            <span class="stat-value" id="org-cmek-status">—</span>
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:20px;align-items:end">
+          <label class="toggle-label">
+            <input type="checkbox" id="org-mfa-required-toggle"/>
+            Require MFA for all org members
+          </label>
+          <button class="btn-sm-primary" id="org-save-btn">Save policy</button>
+        </div>
+      </div>
+
+      <div class="dash-card" style="margin-top:20px">
+        <div class="card-header">
+          <h2>SCIM provisioning</h2>
+          <button class="btn-sm-primary" id="scim-token-btn">Generate SCIM token</button>
+        </div>
+        <p class="card-hint">Base URL for your IdP (Okta, Azure AD): <code id="scim-base-url">/api/v1/scim/v2</code></p>
+        <div id="scim-token-reveal" class="secret-mono" style="display:none;margin-top:12px"></div>
+      </div>
+
+      <div class="dash-card" style="margin-top:20px">
+        <div class="card-header"><h2>Customer-managed keys (CMEK)</h2></div>
+        <div class="field-row">
+          <div class="field">
+            <label>Azure Key Vault URL</label>
+            <input type="text" id="cmek-vault-input" placeholder="https://myvault.vault.azure.net/"/>
+          </div>
+          <div class="field">
+            <label>Key name</label>
+            <input type="text" id="cmek-key-input" placeholder="prismrag-data-key"/>
+          </div>
+        </div>
+        <button class="btn-sm-primary" id="cmek-save-btn" style="margin-top:12px">Configure CMEK</button>
+      </div>
     </div>
   </section>
 

@@ -359,6 +359,16 @@ tbody td:first-child { color: var(--text); font-weight: 500; }
 .upgrade-prompt p { flex: 1; color: var(--text-muted); line-height: 1.5; }
 .upgrade-prompt p strong { color: var(--text); }
 
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.toggle-label input { width: 18px; height: 18px; accent-color: var(--accent); }
+
 /* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .sidebar { display: none; }

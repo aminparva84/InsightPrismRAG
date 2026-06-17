@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Signing in — PrismRAG</title>
+  <link rel="stylesheet" href="/static/css/landing.css"/>
+  <link rel="stylesheet" href="/static/css/auth.css"/>
+</head>
+<body class="auth-body">
+  <div class="auth-card" style="margin: auto; border: none; text-align: center;">
+    <p class="auth-sub">Completing SSO sign-in…</p>
+  </div>
+  <script>
+    const p = new URLSearchParams(window.location.search);
+    const token = p.get('token');
+    if (!token) {
+      window.location.href = '/login.html?error=' + encodeURIComponent('SSO sign-in failed');
+    } else {
+      localStorage.setItem('prismrag_token', token);
+      localStorage.setItem('prismrag_user', JSON.stringify({
+        token,
+        user_id: p.get('user_id'),
+        email: p.get('email'),
+        plan: p.get('plan'),
+        full_name: p.get('full_name') || '',
+      }));
+      window.location.href = '/dashboard.html';
+    }
+  </script>
+</body>
+</html>

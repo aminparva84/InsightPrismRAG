@@ -24,13 +24,31 @@
       <form id="login-form" class="auth-form" novalidate>
         <div class="field">
           <label>Email</label>
-          <input type="email" name="email" placeholder="jane@acme.com" required autofocus/>
+          <input type="email" name="email" id="login-email" placeholder="jane@acme.com" required autofocus/>
         </div>
         <div class="field">
           <label>Password</label>
           <input type="password" name="password" placeholder="Your password" required/>
         </div>
+        <p class="auth-forgot"><a href="/forgot-password.html">Forgot password?</a></p>
         <button type="submit" class="auth-submit" id="submit-btn">Sign in</button>
+      </form>
+
+      <div id="sso-section" style="display:none">
+        <div class="auth-divider"><span>or</span></div>
+        <a href="/api/v1/auth/oidc/login" class="auth-sso-btn" id="sso-btn">Sign in with SSO</a>
+      </div>
+
+      <form id="mfa-form" class="auth-form" style="display:none" novalidate>
+        <p class="auth-sub" style="margin-bottom:8px">Two-factor authentication</p>
+        <p class="auth-mfa-hint">Enter the 6-digit code from your authenticator app, or a backup code.</p>
+        <div class="field">
+          <label>Authentication code</label>
+          <input type="text" name="code" id="mfa-code" inputmode="numeric" autocomplete="one-time-code"
+                 placeholder="000000" maxlength="8" required autofocus/>
+        </div>
+        <button type="submit" class="auth-submit" id="mfa-submit-btn">Verify &amp; sign in</button>
+        <button type="button" class="auth-link-btn" id="mfa-back-btn">← Back to password</button>
       </form>
 
       <p class="auth-switch">No account yet? <a href="/register.html">Create one free</a></p>
@@ -64,40 +82,113 @@
   </div>
 
   <script>
-    // Redirect if already logged in
     if (localStorage.getItem('prismrag_token')) {
       window.location.href = '/dashboard.html';
     }
 
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    const loginForm = document.getElementById('login-form');
+    const mfaForm = document.getElementById('mfa-form');
+    const errorBox = document.getElementById('error-box');
+    let mfaToken = null;
+
+    const urlErr = new URLSearchParams(window.location.search).get('error');
+    if (urlErr) {
+      errorBox.textContent = decodeURIComponent(urlErr);
+      errorBox.style.display = 'block';
+    }
+
+    fetch('/api/v1/auth/oidc/status')
+      .then(r => r.json())
+      .then(d => { if (d.enabled) document.getElementById('sso-section').style.display = 'block'; })
+      .catch(() => {});
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.style.display = 'block';
+    }
+
+    function finishLogin(data) {
+      localStorage.setItem('prismrag_token', data.token);
+      localStorage.setItem('prismrag_user', JSON.stringify(data));
+      const next = new URLSearchParams(window.location.search).get('next') || '/dashboard.html';
+      window.location.href = next;
+    }
+
+    function parseDetail(data) {
+      if (!data.detail) return 'Request failed';
+      return Array.isArray(data.detail)
+        ? data.detail.map(d => d.msg || d).join(', ')
+        : data.detail;
+    }
+
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('submit-btn');
-      const errorBox = document.getElementById('error-box');
       errorBox.style.display = 'none';
       btn.textContent = 'Signing in…';
       btn.disabled = true;
 
-      const fd = new FormData(e.target);
+      const fd = new FormData(loginForm);
       try {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Login failed');
+        if (!res.ok) throw new Error(parseDetail(data));
 
-        localStorage.setItem('prismrag_token', data.token);
-        localStorage.setItem('prismrag_user', JSON.stringify(data));
-
-        const next = new URLSearchParams(window.location.search).get('next') || '/dashboard.html';
-        window.location.href = next;
+        if (data.mfa_required) {
+          mfaToken = data.mfa_token;
+          loginForm.style.display = 'none';
+          document.getElementById('sso-section').style.display = 'none';
+          mfaForm.style.display = 'flex';
+          document.querySelector('.auth-h1').textContent = 'Verify identity';
+          document.querySelector('.auth-sub').textContent = data.email || 'Enter your authenticator code';
+          document.getElementById('mfa-code').focus();
+        } else {
+          finishLogin(data);
+        }
       } catch (err) {
-        errorBox.textContent = err.message;
-        errorBox.style.display = 'block';
+        showError(err.message);
         btn.textContent = 'Sign in';
         btn.disabled = false;
       }
+    });
+
+    mfaForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('mfa-submit-btn');
+      errorBox.style.display = 'none';
+      btn.textContent = 'Verifying…';
+      btn.disabled = true;
+
+      const code = document.getElementById('mfa-code').value.trim();
+      try {
+        const res = await fetch('/api/v1/auth/login/mfa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mfa_token: mfaToken, code }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(parseDetail(data));
+        finishLogin(data);
+      } catch (err) {
+        showError(err.message);
+        btn.textContent = 'Verify & sign in';
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('mfa-back-btn').addEventListener('click', () => {
+      mfaForm.style.display = 'none';
+      loginForm.style.display = 'flex';
+      mfaToken = null;
+      document.querySelector('.auth-h1').textContent = 'Welcome back';
+      document.querySelector('.auth-sub').textContent = 'Sign in to your workspace';
+      fetch('/api/v1/auth/oidc/status')
+        .then(r => r.json())
+        .then(d => { if (d.enabled) document.getElementById('sso-section').style.display = 'block'; });
     });
   </script>
 </body>

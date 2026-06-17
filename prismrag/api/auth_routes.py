@@ -68,6 +68,15 @@ class MfaDisableIn(BaseModel):
     code:     str
 
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token:       str = Field(..., min_length=20)
+    new_password: str = Field(..., min_length=8)
+
+
 class APIKeyOut(BaseModel):
     raw_key:    str   # shown ONCE — user must copy it
     key_prefix: str
@@ -149,6 +158,14 @@ def login(body: LoginIn):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_id, email, _, full_name, plan, _, mfa_enabled = row
+
+    # Org policy: MFA required but user has not enrolled
+    org_mfa_required = _org_mfa_required(str(user_id))
+    if org_mfa_required and not mfa_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Your organization requires two-factor authentication. Sign in to the dashboard and enable MFA under Security.",
+        )
 
     if mfa_enabled:
         from prismrag.auth.mfa import create_mfa_challenge
@@ -298,7 +315,73 @@ def mfa_disable(body: MfaDisableIn, user: dict = Depends(get_current_user)):
 @router.get("/mfa/status")
 def mfa_status(user: dict = Depends(get_current_user)):
     from prismrag.auth.mfa import get_mfa_status
-    return get_mfa_status(user["id"])
+    status = get_mfa_status(user["id"])
+    status["org_mfa_required"] = _org_mfa_required(user["id"])
+    return status
+
+
+@router.post("/password/forgot")
+def forgot_password(body: ForgotPasswordIn):
+    """Request a password reset email (always returns success to prevent enumeration)."""
+    from prismrag.auth.password_reset import create_reset_token, reset_base_url
+    from prismrag.tasks.dispatch import run_in_thread
+    from prismrag.email.azure_acs import send_password_reset_email
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id::text, password_hash FROM prismrag.user_account WHERE email = %s AND is_active",
+            (body.email.lower(),),
+        )
+        row = cur.fetchone()
+    finally:
+        release_conn(conn)
+
+    if row and row[1]:
+        raw = create_reset_token(row[0])
+        reset_url = f"{reset_base_url()}/reset-password.html?token={raw}"
+        run_in_thread(send_password_reset_email, body.email.lower(), reset_url)
+
+    return {"sent": True, "message": "If that email exists, a reset link was sent."}
+
+
+@router.post("/password/reset")
+def reset_password(body: ResetPasswordIn):
+    from prismrag.auth.password_reset import consume_reset_token
+
+    user_id = consume_reset_token(body.token)
+    pw_hash = hash_password(body.new_password)
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE prismrag.user_account SET password_hash = %s, updated_at = now() WHERE id = %s",
+            (pw_hash, user_id),
+        )
+        conn.commit()
+    finally:
+        release_conn(conn)
+    return {"reset": True}
+
+
+def _org_mfa_required(user_id: str) -> bool:
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COALESCE(o.mfa_required, FALSE)
+            FROM prismrag.user_account u
+            LEFT JOIN prismrag.organization o ON o.id = u.organization_id
+            WHERE u.id = %s
+            """,
+            (user_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        release_conn(conn)
+    return bool(row and row[0])
 
 
 @router.get("/me")
@@ -443,9 +526,11 @@ def oidc_login():
     return RedirectResponse(url)
 
 
-@router.get("/oidc/callback", response_model=TokenOut)
+@router.get("/oidc/callback")
 def oidc_callback(code: str, state: str):
-    """OIDC callback — exchanges code and returns JWT."""
+    """OIDC callback — exchanges code and redirects to dashboard with JWT."""
+    from fastapi.responses import RedirectResponse
+    from urllib.parse import urlencode
     from prismrag.auth.oidc import (
         consume_state, exchange_code, find_or_create_user, oidc_enabled,
     )
@@ -453,22 +538,23 @@ def oidc_callback(code: str, state: str):
     if not oidc_enabled():
         raise HTTPException(status_code=501, detail="OIDC not configured")
     if not consume_state(state):
-        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+        return RedirectResponse("/login.html?error=invalid_oauth_state")
 
     try:
         claims = exchange_code(code)
         user = find_or_create_user(claims)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return RedirectResponse(f"/login.html?error={__import__('urllib.parse').quote(str(exc))}")
 
     token = create_jwt(user["id"], user["email"], user["plan"])
-    return TokenOut(
-        token=token,
-        user_id=user["id"],
-        email=user["email"],
-        plan=user["plan"],
-        full_name=user.get("fullName") or "",
-    )
+    params = urlencode({
+        "token": token,
+        "user_id": user["id"],
+        "email": user["email"],
+        "plan": user["plan"],
+        "full_name": user.get("fullName") or "",
+    })
+    return RedirectResponse(f"/oauth-callback.html?{params}")
 
 
 @router.get("/oidc/status")

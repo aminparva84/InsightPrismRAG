@@ -347,6 +347,39 @@ async def list_bridges(
 
 # ── Tenant management ─────────────────────────────────────────────────────────
 
+@router.get("/tenants")
+def list_tenants(user: dict = Depends(get_current_user)):
+    """List workspaces the user can access (owner or member)."""
+    from prismrag.db import get_conn, release_conn
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT t.id, t.name, t.tier, t.data_region, t.created_at, tm.role
+            FROM prismrag.tenant t
+            JOIN prismrag.tenant_member tm ON tm.tenant_id = t.id
+            WHERE tm.user_id = %s
+            ORDER BY t.created_at DESC
+            """,
+            (user["id"],),
+        )
+        return [
+            {
+                "tenant_id": str(r[0]),
+                "name": r[1],
+                "tier": r[2],
+                "data_region": r[3],
+                "created_at": r[4].isoformat() if r[4] else None,
+                "role": r[5],
+            }
+            for r in cur.fetchall()
+        ]
+    finally:
+        release_conn(conn)
+
+
 @router.post("/tenants")
 def create_tenant(
     payload: dict,
