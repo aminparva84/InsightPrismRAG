@@ -74,6 +74,14 @@ def invite_member(
         ensure_tenant_member(
             tenant_id, target_id, body.email.lower(), body.role, invited_by=user["id"]
         )
+        from prismrag.tasks.dispatch import run_in_thread
+        from prismrag.email.azure_acs import send_member_invite_email
+        run_in_thread(
+            send_member_invite_email,
+            body.email.lower(),
+            "PrismRAG workspace",
+            user.get("fullName") or user.get("email", ""),
+        )
         return {"user_id": target_id, "email": body.email.lower(), "role": body.role}
     finally:
         release_conn(conn)

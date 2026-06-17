@@ -354,15 +354,23 @@ def create_tenant(
 ):
     _check_tenant_quota(user)
     from prismrag.db import get_conn, release_conn
+    from prismrag.regions import validate_region, DEFAULT_REGION
+
     name  = payload.get("name", "Untitled")
     tier  = payload.get("tier", "tier1")
+    data_region = payload.get("data_region", DEFAULT_REGION)
+    validate_region(data_region)
+
     tenant_id = str(uuid.uuid4())
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO prismrag.tenant (id, name, owner_email, tier) VALUES (%s, %s, %s, %s)",
-            (tenant_id, name, user.get("email", ""), tier),
+            """
+            INSERT INTO prismrag.tenant (id, name, owner_email, tier, data_region)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (tenant_id, name, user.get("email", ""), tier, data_region),
         )
         conn.commit()
     finally:
@@ -373,6 +381,7 @@ def create_tenant(
 
     return {
         "tenant_id": tenant_id, "name": name, "tier": tier,
+        "data_region": data_region,
         "created_at": __import__("datetime").datetime.utcnow().isoformat(),
     }
 

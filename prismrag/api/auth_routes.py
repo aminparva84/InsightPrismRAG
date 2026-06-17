@@ -39,6 +39,35 @@ class TokenOut(BaseModel):
     full_name: str
 
 
+class LoginResponse(BaseModel):
+    mfa_required: bool = False
+    mfa_token:    str | None = None
+    token:        str | None = None
+    user_id:      str | None = None
+    email:        str | None = None
+    plan:         str | None = None
+    full_name:    str | None = None
+
+
+class MfaVerifyIn(BaseModel):
+    mfa_token: str
+    code:      str = Field(..., min_length=6, max_length=8)
+
+
+class MfaEnrollStartOut(BaseModel):
+    secret:    str
+    otpauth_uri: str
+
+
+class MfaEnrollConfirmIn(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class MfaDisableIn(BaseModel):
+    password: str
+    code:     str
+
+
 class APIKeyOut(BaseModel):
     raw_key:    str   # shown ONCE — user must copy it
     key_prefix: str
@@ -84,6 +113,10 @@ def register(body: RegisterIn):
     finally:
         release_conn(conn)
 
+    from prismrag.tasks.dispatch import run_in_thread
+    from prismrag.email.azure_acs import send_welcome_email
+    run_in_thread(send_welcome_email, body.email.lower(), body.full_name)
+
     token = create_jwt(user_id, body.email.lower(), "free")
     return TokenOut(
         token=token, user_id=user_id,
@@ -91,13 +124,13 @@ def register(body: RegisterIn):
     )
 
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=LoginResponse)
 def login(body: LoginIn):
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, email, password_hash, full_name, plan, is_active "
+            "SELECT id, email, password_hash, full_name, plan, is_active, mfa_enabled "
             "FROM prismrag.user_account WHERE email = %s",
             (body.email.lower(),),
         )
@@ -115,11 +148,157 @@ def login(body: LoginIn):
     if not verify_password(body.password, row[2]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_jwt(str(row[0]), row[1], row[4])
-    return TokenOut(
-        token=token, user_id=str(row[0]),
-        email=row[1], plan=row[4], full_name=row[3] or "",
+    user_id, email, _, full_name, plan, _, mfa_enabled = row
+
+    if mfa_enabled:
+        from prismrag.auth.mfa import create_mfa_challenge
+        return LoginResponse(
+            mfa_required=True,
+            mfa_token=create_mfa_challenge(str(user_id)),
+            email=email,
+            user_id=str(user_id),
+        )
+
+    token = create_jwt(str(user_id), email, plan)
+    return LoginResponse(
+        mfa_required=False,
+        token=token,
+        user_id=str(user_id),
+        email=email,
+        plan=plan,
+        full_name=full_name or "",
     )
+
+
+@router.post("/login/mfa", response_model=TokenOut)
+def login_mfa(body: MfaVerifyIn):
+    from prismrag.auth.mfa import (
+        consume_mfa_challenge, verify_totp, verify_backup_code,
+    )
+
+    user_id = consume_mfa_challenge(body.mfa_token)
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT email, full_name, plan, mfa_secret, mfa_enabled, is_active "
+            "FROM prismrag.user_account WHERE id = %s",
+            (user_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        release_conn(conn)
+
+    if not row or not row[5] or not row[4]:
+        raise HTTPException(status_code=401, detail="MFA not enabled")
+
+    email, full_name, plan, secret, _, _ = row
+    ok = verify_totp(secret, body.code) or verify_backup_code(user_id, body.code)
+    if not ok:
+        raise HTTPException(status_code=401, detail="Invalid MFA code")
+
+    token = create_jwt(user_id, email, plan)
+    return TokenOut(
+        token=token, user_id=user_id,
+        email=email, plan=plan, full_name=full_name or "",
+    )
+
+
+@router.post("/mfa/enroll/start", response_model=MfaEnrollStartOut)
+def mfa_enroll_start(user: dict = Depends(get_current_user)):
+    from prismrag.auth.mfa import generate_totp_secret, totp_uri, get_mfa_status
+
+    status = get_mfa_status(user["id"])
+    if status["mfa_enabled"]:
+        raise HTTPException(status_code=400, detail="MFA already enabled")
+
+    secret = generate_totp_secret()
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE prismrag.user_account SET mfa_secret = %s WHERE id = %s",
+            (secret, user["id"]),
+        )
+        conn.commit()
+    finally:
+        release_conn(conn)
+
+    return MfaEnrollStartOut(secret=secret, otpauth_uri=totp_uri(secret, user["email"]))
+
+
+@router.post("/mfa/enroll/confirm")
+def mfa_enroll_confirm(body: MfaEnrollConfirmIn, user: dict = Depends(get_current_user)):
+    from prismrag.auth.mfa import verify_totp, generate_backup_codes, hash_backup_code
+    from prismrag.tasks.dispatch import run_in_thread
+    from prismrag.email.azure_acs import send_mfa_enabled_email
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT mfa_secret FROM prismrag.user_account WHERE id = %s",
+            (user["id"],),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            raise HTTPException(status_code=400, detail="Call /mfa/enroll/start first")
+        if not verify_totp(row[0], body.code):
+            raise HTTPException(status_code=400, detail="Invalid code — check your authenticator app")
+
+        codes = generate_backup_codes()
+        hashed = [hash_backup_code(c) for c in codes]
+        cur.execute(
+            """
+            UPDATE prismrag.user_account
+            SET mfa_enabled = TRUE, mfa_backup_codes = %s, updated_at = now()
+            WHERE id = %s
+            """,
+            (hashed, user["id"]),
+        )
+        conn.commit()
+    finally:
+        release_conn(conn)
+
+    run_in_thread(send_mfa_enabled_email, user["email"])
+    return {"mfa_enabled": True, "backup_codes": codes}
+
+
+@router.post("/mfa/disable")
+def mfa_disable(body: MfaDisableIn, user: dict = Depends(get_current_user)):
+    from prismrag.auth.mfa import verify_totp
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT password_hash, mfa_secret FROM prismrag.user_account WHERE id = %s",
+            (user["id"],),
+        )
+        row = cur.fetchone()
+        if not row or not verify_password(body.password, row[0]):
+            raise HTTPException(status_code=401, detail="Invalid password")
+        if not verify_totp(row[1], body.code):
+            raise HTTPException(status_code=400, detail="Invalid MFA code")
+
+        cur.execute(
+            """
+            UPDATE prismrag.user_account
+            SET mfa_enabled = FALSE, mfa_secret = NULL, mfa_backup_codes = '{}'
+            WHERE id = %s
+            """,
+            (user["id"],),
+        )
+        conn.commit()
+    finally:
+        release_conn(conn)
+    return {"mfa_enabled": False}
+
+
+@router.get("/mfa/status")
+def mfa_status(user: dict = Depends(get_current_user)):
+    from prismrag.auth.mfa import get_mfa_status
+    return get_mfa_status(user["id"])
 
 
 @router.get("/me")
@@ -296,3 +475,8 @@ def oidc_callback(code: str, state: str):
 def oidc_status():
     from prismrag.auth.oidc import oidc_enabled
     return {"enabled": oidc_enabled()}
+
+
+# SCIM org admin routes (enterprise)
+from prismrag.api.scim_routes import register_scim_admin_routes
+register_scim_admin_routes(router)

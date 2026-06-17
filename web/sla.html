@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PrismRAG Service Level Agreement</title>
+  <link rel="stylesheet" href="/static/css/landing.css"/>
+</head>
+<body class="legal-page">
+  <main class="legal-content">
+    <h1>Service Level Agreement</h1>
+    <p><em>PrismRAG by Insight ITS — PrismRAG@insightits.com</em></p>
+
+    <h2>Uptime commitment</h2>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr style="border-bottom:1px solid #ddd"><th align="left">Plan</th><th align="left">Monthly uptime</th><th align="left">Support response</th></tr>
+      <tr><td>Free / Starter</td><td>Best effort</td><td>Community / 24h email</td></tr>
+      <tr><td>Professional</td><td>99.5%</td><td>8 business hours</td></tr>
+      <tr><td>Enterprise</td><td>99.9%</td><td>1 hour (24×7 for Sev-1)</td></tr>
+    </table>
+
+    <h2>What we measure</h2>
+    <p>Uptime is calculated as the percentage of minutes in a calendar month that the PrismRAG API (<code>/api/v1/prismrag/health</code> and core ingest/search endpoints) returns non-5xx responses, excluding scheduled maintenance announced 48 hours in advance.</p>
+
+    <h2>Exclusions</h2>
+    <ul>
+      <li>Customer misconfiguration or expired API keys</li>
+      <li>Third-party outages (Google Gemini, Stripe, customer IdP)</li>
+      <li>Force majeure</li>
+      <li>Beta or preview features</li>
+    </ul>
+
+    <h2>Service credits (Enterprise)</h2>
+    <ul>
+      <li>99.0%–99.9%: 10% monthly fee credit</li>
+      <li>95.0%–99.0%: 25% monthly fee credit</li>
+      <li>Below 95.0%: 50% monthly fee credit</li>
+    </ul>
+    <p>Credits require a ticket within 30 days of the incident month. Maximum credit per month: 50% of fees.</p>
+
+    <h2>Status &amp; contact</h2>
+    <p>Live status: <a href="/status.html">status page</a> · API: <a href="/api/v1/status">/api/v1/status</a></p>
+    <p>Support: <a href="mailto:PrismRAG@insightits.com">PrismRAG@insightits.com</a></p>
+    <p><a href="/">← Back to home</a></p>
+  </main>
+</body>
+</html>

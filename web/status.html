@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PrismRAG Status</title>
+  <link rel="stylesheet" href="/static/css/landing.css"/>
+  <style>
+    .status-wrap { max-width: 720px; margin: 48px auto; padding: 0 24px; }
+    .status-banner { padding: 20px 24px; border-radius: 12px; margin-bottom: 24px; font-weight: 600; }
+    .status-operational { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .status-degraded { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .status-outage { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .component { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .dot-ok { background: #10b981; } .dot-warn { background: #f59e0b; } .dot-bad { background: #ef4444; }
+    .incident { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="status-wrap">
+    <h1>PrismRAG System Status</h1>
+    <p id="updated">Loading…</p>
+    <div id="banner" class="status-banner">Checking…</div>
+    <h2>Components</h2>
+    <div id="components"></div>
+    <h2>Active incidents</h2>
+    <div id="incidents"><p>None</p></div>
+    <p style="margin-top:32px"><a href="/sla.html">Service Level Agreement</a> · <a href="/">Home</a></p>
+  </div>
+  <script>
+    const labels = { operational: 'All systems operational', degraded: 'Degraded performance', major_outage: 'Major outage' };
+    const classes = { operational: 'status-operational', degraded: 'status-degraded', major_outage: 'status-outage' };
+    const dot = { operational: 'dot-ok', degraded: 'dot-warn', outage: 'dot-bad', unknown: 'dot-warn' };
+
+    async function refresh() {
+      const r = await fetch('/api/v1/status');
+      const d = await r.json();
+      document.getElementById('updated').textContent = 'Updated ' + new Date(d.updated_at).toLocaleString();
+      const b = document.getElementById('banner');
+      b.textContent = labels[d.status] || d.status;
+      b.className = 'status-banner ' + (classes[d.status] || 'status-degraded');
+      const comp = document.getElementById('components');
+      comp.innerHTML = Object.entries(d.components).map(([k, v]) =>
+        `<div class="component"><span><span class="dot ${dot[v.status]||'dot-warn'}"></span>${k}</span><span>${v.status}</span></div>`
+      ).join('');
+      const inc = document.getElementById('incidents');
+      inc.innerHTML = (d.incidents && d.incidents.length)
+        ? d.incidents.map(i => `<div class="incident"><strong>${i.title}</strong><br>${i.message}<br><small>${i.status} · ${i.component}</small></div>`).join('')
+        : '<p>No active incidents</p>';
+    }
+    refresh();
+    setInterval(refresh, 60000);
+  </script>
+</body>
+</html>
