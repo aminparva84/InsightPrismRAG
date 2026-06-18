@@ -1,4 +1,4 @@
-# PrismRAG — Enterprise Readiness (v1.2)
+﻿# PrismRAG — Enterprise Readiness (v1.2)
 
 ## Implemented
 
@@ -12,7 +12,7 @@
 | **SCIM 2.0 provisioning** | ✅ `/api/v1/scim/v2/Users` + dashboard token UI |
 | **Multi-region tenants** | ✅ `data_region` + org creation UI |
 | **CMEK (Azure Key Vault)** | ✅ API + dashboard configure UI |
-| **Azure email (ACS)** | ✅ `PrismRAG@insightits.com` |
+| **Azure email (ACS)** | ✅ `prismrag@insightits.com` |
 | **Status page + SLA** | ✅ `/status.html`, `/sla.html`, `/api/v1/status` |
 | **List workspaces** | ✅ `GET /api/v1/prismrag/tenants` |
 | Async ingest + search | ✅ job queue + search tasks |

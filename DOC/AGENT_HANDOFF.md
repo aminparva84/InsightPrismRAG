@@ -1,9 +1,9 @@
-# PrismRAG — Agent Handoff & Deployment Status
+﻿# PrismRAG — Agent Handoff & Deployment Status
 
 > Last updated: 2026-06-17  
 > Branch: `main`  
 > GitHub repo: https://github.com/aminparva84/InsightPrismRAG  
-> Owner: aminparva84 / insightits.info@gmail.com
+> Owner: aminparva84 / prismrag@insightits.com
 
 ---
 

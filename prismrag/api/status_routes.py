@@ -1,4 +1,4 @@
-"""PrismRAG — Public status + SLA API."""
+﻿"""PrismRAG — Public status + SLA API."""
 from __future__ import annotations
 
 import os
@@ -66,7 +66,7 @@ def _check_worker() -> dict:
 
 def _check_email() -> dict:
     if os.getenv("AZURE_COMMUNICATION_CONNECTION_STRING"):
-        return {"status": "operational", "from": os.getenv("PRISMRAG_EMAIL_FROM", "PrismRAG@insightits.com")}
+        return {"status": "operational", "from": os.getenv("PRISMRAG_EMAIL_FROM", "prismrag@insightits.com")}
     return {"status": "degraded", "note": "Azure Communication Services not configured"}
 
 
@@ -129,7 +129,7 @@ def sla_summary():
         },
         "credit_policy": "Enterprise customers receive service credits per executed SLA agreement.",
         "status_page": "/status.html",
-        "contact": "PrismRAG@insightits.com",
+        "contact": "prismrag@insightits.com",
     }
 
 

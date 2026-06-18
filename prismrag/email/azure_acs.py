@@ -1,4 +1,4 @@
-"""PrismRAG — Transactional email via Azure Communication Services."""
+﻿"""PrismRAG — Transactional email via Azure Communication Services."""
 from __future__ import annotations
 
 import logging
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 ACS_CONNECTION_STRING = os.getenv("AZURE_COMMUNICATION_CONNECTION_STRING", "")
 EMAIL_FROM = os.getenv(
     "PRISMRAG_EMAIL_FROM",
-    os.getenv("AZURE_EMAIL_FROM", "PrismRAG@insightits.com"),
+    os.getenv("AZURE_EMAIL_FROM", "prismrag@insightits.com"),
 )
 EMAIL_ENABLED = os.getenv("PRISMRAG_EMAIL_ENABLED", "true").lower() in ("1", "true", "yes")
 
@@ -97,7 +97,7 @@ def send_welcome_email(to: str, full_name: str) -> dict:
     <p>Your account is ready. PrismRAG lets you define Tier-1 mapping rules and search
     your knowledge graph with Graph RAG retrieval.</p>
     <p><a href="https://prismrag.insightits.com/dashboard.html">Open dashboard</a></p>
-    <p style="color:#666;font-size:12px;">PrismRAG by Insight ITS — PrismRAG@insightits.com</p>
+    <p style="color:#666;font-size:12px;">PrismRAG by Insight ITS — prismrag@insightits.com</p>
     </body></html>
     """
     return send_email(to, "Welcome to PrismRAG", html, template="welcome")

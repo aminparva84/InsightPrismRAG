@@ -1,13 +1,15 @@
-"""PrismRAG — FastAPI application entry point."""
+﻿"""PrismRAG — FastAPI application entry point."""
 import logging
 import os
+import uuid
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from prismrag.api.routes import router
@@ -31,6 +33,7 @@ from prismrag.middleware.mfa_enforcement import MFAEnforcementMiddleware
 from prismrag.middleware.rate_limit_headers import RateLimitHeadersMiddleware
 from prismrag.middleware.ip_allowlist import IPAllowlistMiddleware
 from prismrag.db import init_schema
+from prismrag.alerting import alert_admin, ErrorSeverity
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,6 +101,60 @@ app.mount("/static", StaticFiles(directory="web/static"), name="static")
 app.mount("/", StaticFiles(directory="web", html=True), name="web")
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Catch-all for any unhandled exception.
+    - Returns a clean JSON error to the client (no stack traces exposed)
+    - Emails all admins with full traceback + request context
+    - Optionally emails the authenticated user a polite apology
+    """
+    ref = str(uuid.uuid4())[:8].upper()
+    log.exception("Unhandled error [ref=%s] %s %s", ref, request.method, request.url.path)
+
+    # Determine user context if available
+    user_email = None
+    user_name  = None
+    try:
+        # Request state is populated by RequestIdMiddleware / auth dependency
+        user_email = getattr(request.state, "user_email", None)
+        user_name  = getattr(request.state, "user_name",  None)
+    except Exception:
+        pass
+
+    alert_admin(
+        subject=f"Unhandled error on {request.method} {request.url.path}",
+        message=str(exc),
+        severity=ErrorSeverity.ERROR,
+        exc=exc,
+        context={
+            "ref":        ref,
+            "method":     request.method,
+            "path":       request.url.path,
+            "user_email": user_email or "unknown",
+            "client_ip":  request.client.host if request.client else "unknown",
+        },
+    )
+
+    if user_email:
+        from prismrag.alerting import alert_client
+        alert_client(
+            to=user_email,
+            user_name=user_name or "",
+            operation=f"{request.method} {request.url.path}",
+            support_ref=ref,
+        )
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "An unexpected error occurred. Our team has been notified.",
+            "ref":   ref,
+            "support": "prismrag@insightits.com",
+        },
+    )
+
+
 @app.on_event("startup")
 async def startup():
     try:
@@ -105,6 +162,12 @@ async def startup():
         log.info("Schema initialised")
     except Exception as exc:
         log.warning("Schema init deferred (DB not ready): %s", exc)
+        alert_admin(
+            subject="Startup: schema initialisation failed",
+            message=str(exc),
+            severity=ErrorSeverity.CRITICAL,
+            exc=exc,
+        )
 
 
 if __name__ == "__main__":

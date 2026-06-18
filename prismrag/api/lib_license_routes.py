@@ -1,4 +1,4 @@
-"""
+﻿"""
 PrismRAG — Library license API.
 
 Public:
@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/lib", tags=["Library License"])
 
-SUPERADMIN_EMAIL = os.getenv("PRISMRAG_SUPERADMIN_EMAIL", "insightits.info@gmail.com")
+SUPERADMIN_EMAIL = os.getenv("PRISMRAG_SUPERADMIN_EMAIL", "prismrag@insightits.com")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ def validate_license(body: ValidateRequest):
         lid, company, email, plan, status, expires_at, max_calls, calls_today, reset_date = row
 
         if status == "suspended":
-            raise HTTPException(status_code=403, detail="License suspended — contact support@prismrag.insightits.com")
+            raise HTTPException(status_code=403, detail="License suspended — contact prismrag@insightits.com")
         if status == "cancelled":
             raise HTTPException(status_code=403, detail="License cancelled")
 

@@ -1,4 +1,4 @@
-# PrismRAG — SOC 2 & ISO 27001 Compliance Program Starter
+﻿# PrismRAG — SOC 2 & ISO 27001 Compliance Program Starter
 
 This is the **organizational** layer. Product controls are in [`iso27001-control-mapping.md`](iso27001-control-mapping.md).
 
@@ -92,4 +92,4 @@ Deliver with enterprise deals:
 4. CMEK Key Vault configuration runbook
 5. Data region selection (`data_region` on tenant create)
 
-Contact: **PrismRAG@insightits.com**
+Contact: **prismrag@insightits.com**

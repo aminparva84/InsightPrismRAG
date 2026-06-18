@@ -66,12 +66,16 @@ class RulesStrategy(MappingStrategy):
         # Get Gemini 768-d vectors
         sem_vecs = embed_texts(texts)
 
+        failed = [texts[i] for i, v in enumerate(sem_vecs) if v is None]
+        if failed:
+            raise RuntimeError(
+                f"Gemini embedding failed for {len(failed)} chunk(s) — cannot store zero vectors. "
+                f"Check GEMINI_API_KEY and network connectivity. First failed text: {failed[0][:80]!r}"
+            )
+
         results = []
         for i, (cat, sem_vec) in enumerate(zip(cat_slugs, sem_vecs)):
-            if sem_vec is None:
-                sem_arr = np.zeros(768, dtype=float)
-            else:
-                sem_arr = np.array(sem_vec, dtype=float)
+            sem_arr = np.array(sem_vec, dtype=float)
 
             # Project 768-d → 256-d with category-aware linear map
             personal_vec = self._project(sem_arr, cat)

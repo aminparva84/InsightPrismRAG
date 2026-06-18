@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prismrag-patch"
+version = "0.1.1"
+description = "Drop-in hallucination-resistant retrieval for pgvector, ChromaDB, Pinecone, and Weaviate"
+readme = "README.md"
+license = { text = "Commercial" }
+authors = [{ name = "Insight IT Solutions", email = "prismrag@insightits.com" }]
+requires-python = ">=3.9"
+keywords = ["rag", "vector-database", "hallucination", "pgvector", "chromadb", "pinecone", "weaviate", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests>=2.28",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+pgvector = ["psycopg2-binary>=2.9", "pgvector>=0.2"]
+chroma   = ["chromadb>=0.4"]
+pinecone = ["pinecone-client>=3.0"]
+weaviate = ["weaviate-client>=4.0"]
+all      = [
+    "psycopg2-binary>=2.9", "pgvector>=0.2",
+    "chromadb>=0.4",
+    "pinecone-client>=3.0",
+    "weaviate-client>=4.0",
+]
+
+[project.urls]
+Homepage    = "https://prismrag.insightits.com/prismrag-lib.html"
+Repository  = "https://github.com/aminparva84/InsightPrismRAG"
+"Bug Tracker" = "https://prismrag.insightits.com/support"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["prismrag_patch*"]

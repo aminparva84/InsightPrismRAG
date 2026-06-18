@@ -1,4 +1,4 @@
-# Azure Email for PrismRAG@insightits.com (domain DNS in AWS)
+﻿# Azure Email for prismrag@insightits.com (domain DNS in AWS)
 
 Yes — **your domain can stay in AWS Route 53** while email sends from **Azure Communication Services (ACS)**. DNS is just records; they can point anywhere.
 
@@ -13,7 +13,7 @@ insightits.com (Route 53 in AWS)
     └── CNAME    → Domain verification (Azure)
 
 Azure Communication Services (Email)
-    └── Verified sender: PrismRAG@insightits.com
+    └── Verified sender: prismrag@insightits.com
 ```
 
 PrismRAG app → `azure.communication.email` → recipient inbox
@@ -61,7 +61,7 @@ az communication email domain create \
 
 ## Step 3 — Configure sender address
 
-1. ACS → **Email** → **MailFrom addresses** → Add `PrismRAG@insightits.com`
+1. ACS → **Email** → **MailFrom addresses** → Add `prismrag@insightits.com`
 2. Or use subdomain: `noreply@insightits.com` (also fine)
 
 ---
@@ -73,7 +73,7 @@ az communication email domain create \
 
 ```bash
 AZURE_COMMUNICATION_CONNECTION_STRING=endpoint=https://...;accesskey=...
-PRISMRAG_EMAIL_FROM=PrismRAG@insightits.com
+PRISMRAG_EMAIL_FROM=prismrag@insightits.com
 PRISMRAG_EMAIL_ENABLED=true
 ```
 
@@ -99,7 +99,7 @@ Check `prismrag.email_log` table for delivery status.
 
 ## Receiving mail (optional)
 
-ACS Email is **send-only** by default. To **receive** at `PrismRAG@insightits.com`:
+ACS Email is **send-only** by default. To **receive** at `prismrag@insightits.com`:
 
 - **Microsoft 365** with `insightits.com` in Exchange Online (MX in Route 53 → Microsoft), or
 - **AWS SES** receiving + S3/Lambda (keep send on Azure or move all email to SES)
@@ -126,7 +126,7 @@ Add in Route 53:
 ```text
 Type: TXT
 Name: _dmarc
-Value: v=DMARC1; p=quarantine; rua=mailto:PrismRAG@insightits.com
+Value: v=DMARC1; p=quarantine; rua=mailto:prismrag@insightits.com
 ```
 
 ---

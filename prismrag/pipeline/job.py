@@ -405,6 +405,24 @@ def run_job(
             error_message=str(exc)[:500],
             finished_at=finished,
         )
+        try:
+            from prismrag.alerting import alert_admin, alert_client, ErrorSeverity
+            alert_admin(
+                subject=f"Ingest job {job_id} failed",
+                message=str(exc),
+                severity=ErrorSeverity.ERROR,
+                exc=exc,
+                context={
+                    "job_id":    job_id,
+                    "user_id":   user_id,
+                    "tenant_id": str(request.tenant_id),
+                    "strategy":  request.strategy.value,
+                },
+            )
+            # Notify the user whose job failed
+            _notify_job_failure_user(user_id, job_id, exc)
+        except Exception:
+            pass
         from prismrag.audit.results import log_ingest_result
         log_ingest_result(
             job_id=job_id,
@@ -613,6 +631,32 @@ def _count_communities(tenant_id: str, mapping_id: str) -> int:
         return int(cur.fetchone()[0])
     finally:
         release_conn(conn)
+
+
+def _notify_job_failure_user(user_id: str, job_id: str, exc: Exception) -> None:
+    """Look up the user's email and send a polite apology for the failed ingest job."""
+    try:
+        from prismrag.db import get_conn, release_conn
+        from prismrag.alerting import alert_client
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT email, full_name FROM prismrag.user_account WHERE id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+        finally:
+            release_conn(conn)
+        if row:
+            alert_client(
+                to=row[0],
+                user_name=row[1] or "",
+                operation="data ingestion job",
+                support_ref=job_id,
+            )
+    except Exception as notify_exc:
+        logger.warning("Could not notify user %s of job failure: %s", user_id, notify_exc)
 
 
 def _fire_webhook(url: str, job_id: str, status: str,
