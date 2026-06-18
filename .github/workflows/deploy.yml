@@ -1,5 +1,8 @@
 name: Build & Deploy to Azure
 
+# Every push to main runs lint + build (images always current in ACR).
+# Deploy to Azure ONLY when commit message contains [publish] or run is triggered manually.
+
 on:
   push:
     branches: [main]
@@ -11,13 +14,11 @@ on:
         default: ''
 
 env:
-  ACR_NAME: prismragacr
   ACR_LOGIN_SERVER: prismragacr.azurecr.io
   RESOURCE_GROUP: prismrag-rg
-  LOCATION: eastus2
 
 jobs:
-  # ── 1. Lint + unit smoke ──────────────────────────────────────────────────
+  # ── 1. Lint ───────────────────────────────────────────────────────────────
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -39,7 +40,7 @@ jobs:
           JWT_SECRET: ci-placeholder
           GEMINI_API_KEY: ci-placeholder
 
-  # ── 2. Build & push both Docker images ───────────────────────────────────
+  # ── 2. Build & push Docker images (every push) ───────────────────────────
   build:
     name: Build & Push
     runs-on: ubuntu-latest
@@ -95,77 +96,111 @@ jobs:
           cache-from: type=gha,scope=worker
           cache-to: type=gha,mode=max,scope=worker
 
-  # ── 3. Deploy Bicep to Azure Container Apps ───────────────────────────────
+  # ── 3. Deploy — only when commit message contains [publish] ──────────────
   deploy:
     name: Deploy to Azure
     runs-on: ubuntu-latest
     needs: build
     environment: production
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[publish]')
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Azure login (service principal)
+      - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Write all secrets into a JSON params file — avoids shell quoting issues
+      # with special characters in passwords, connection strings, etc.
+      - name: Write params file
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+
+          def s(key, default='not-configured'):
+              return os.environ.get(key) or default
+
+          params = {
+            "acrLoginServer":                     {"value": s("ACR_LOGIN_SERVER")},
+            "acrName":                            {"value": "prismragacr"},
+            "imageTag":                           {"value": s("IMAGE_TAG")},
+            "externalDb":                         {"value": True},
+            "deployRedis":                        {"value": False},
+            "externalDbDsn":                      {"value": s("DB_CONNECTION_STRING")},
+            "dbConnectionString":                 {"value": s("DB_CONNECTION_STRING")},
+            "jwtSecret":                          {"value": s("JWT_SECRET")},
+            "geminiApiKey":                       {"value": s("GEMINI_API_KEY")},
+            "acrUsername":                        {"value": s("ACR_USERNAME")},
+            "acrPassword":                        {"value": s("ACR_PASSWORD")},
+            "stripeSecretKey":                    {"value": s("STRIPE_SECRET_KEY")},
+            "stripeWebhookSecret":                {"value": s("STRIPE_WEBHOOK_SECRET")},
+            "stripePriceStarter":                 {"value": s("STRIPE_PRICE_STARTER")},
+            "stripePriceProf":                    {"value": s("STRIPE_PRICE_PROF")},
+            "stripePriceEnterprise":              {"value": s("STRIPE_PRICE_ENTERPRISE")},
+            "serviceBusConnectionString":         {"value": s("SERVICE_BUS_CONN_STR")},
+            "azureCommunicationConnectionString": {"value": s("ACS_CONN_STR")},
+            "prismragEmailFrom":                  {"value": s("PRISMRAG_EMAIL_FROM", "PrismRAG@insightits.com")},
+            "prismragBaseUrl":                    {"value": s("PRISMRAG_BASE_URL", "https://prismrag.insightits.com")},
+          }
+          with open('infra/deploy-params.json', 'w') as f:
+              json.dump(params, f, indent=2)
+          print("Params file written.")
+          PYEOF
+        env:
+          ACR_LOGIN_SERVER: ${{ env.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+          DB_CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_STARTER: ${{ secrets.STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PROF: ${{ secrets.STRIPE_PRICE_PROF }}
+          STRIPE_PRICE_ENTERPRISE: ${{ secrets.STRIPE_PRICE_ENTERPRISE }}
+          SERVICE_BUS_CONN_STR: ${{ secrets.SERVICE_BUS_CONN_STR }}
+          ACS_CONN_STR: ${{ secrets.AZURE_COMMUNICATION_CONNECTION_STRING }}
+          PRISMRAG_EMAIL_FROM: ${{ secrets.PRISMRAG_EMAIL_FROM }}
+          PRISMRAG_BASE_URL: ${{ secrets.PRISMRAG_BASE_URL }}
+
       - name: Deploy Bicep
-        uses: azure/arm-deploy@v2
-        with:
-          resourceGroupName: ${{ env.RESOURCE_GROUP }}
-          template: infra/container-apps.bicep
-          parameters: >
-            acrLoginServer=${{ env.ACR_LOGIN_SERVER }}
-            imageTag=${{ needs.build.outputs.image_tag }}
-            externalDb=true
-            deployRedis=false
-            externalDbDsn="${{ secrets.DB_CONNECTION_STRING || 'not-configured' }}"
-            dbConnectionString="${{ secrets.DB_CONNECTION_STRING || 'not-configured' }}"
-            jwtSecret="${{ secrets.JWT_SECRET }}"
-            geminiApiKey="${{ secrets.GEMINI_API_KEY }}"
-            stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY || 'not-configured' }}"
-            stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET || 'not-configured' }}"
-            stripePriceStarter="${{ secrets.STRIPE_PRICE_STARTER || 'not-configured' }}"
-            stripePriceProf="${{ secrets.STRIPE_PRICE_PROF || 'not-configured' }}"
-            stripePriceEnterprise="${{ secrets.STRIPE_PRICE_ENTERPRISE || 'not-configured' }}"
-            serviceBusConnectionString="${{ secrets.SERVICE_BUS_CONN_STR || 'not-configured' }}"
-            azureCommunicationConnectionString="${{ secrets.AZURE_COMMUNICATION_CONNECTION_STRING || 'not-configured' }}"
-            prismragEmailFrom="${{ secrets.PRISMRAG_EMAIL_FROM || 'PrismRAG@insightits.com' }}"
-            acrUsername="${{ secrets.ACR_USERNAME }}"
-            acrPassword="${{ secrets.ACR_PASSWORD }}"
-            prismragBaseUrl="${{ secrets.PRISMRAG_BASE_URL || 'https://prismrag.insightits.com' }}"
-          deploymentMode: Incremental
+        run: |
+          az deployment group create \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
+            --template-file infra/container-apps.bicep \
+            --parameters @infra/deploy-params.json \
+            --mode Incremental \
+            --output none
 
       - name: Wait for API health
         run: |
           API_URL=$(az containerapp show \
             --name prismrag-api \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --resource-group "${{ env.RESOURCE_GROUP }}" \
             --query properties.configuration.ingress.fqdn \
             -o tsv)
-          echo "API URL: https://${API_URL}"
           echo "API_URL=https://${API_URL}" >> $GITHUB_ENV
+          echo "Polling https://${API_URL}/api/v1/prismrag/health ..."
 
           for i in $(seq 1 20); do
             STATUS=$(curl -sf "https://${API_URL}/api/v1/prismrag/health" \
-                     -o /dev/null -w "%{http_code}" || echo "000")
-            echo "Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed."
-              exit 0
-            fi
+                     -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000")
+            echo "  Attempt $i: HTTP $STATUS"
+            [ "$STATUS" = "200" ] && { echo "Health check passed."; exit 0; }
             sleep 15
           done
-          echo "Health check timed out after 300s"
-          exit 1
+          echo "Health check timed out after 300s" && exit 1
 
-      - name: Print deployment summary
+      - name: Deployment summary
         if: success()
         run: |
-          echo "============================================"
-          echo "  PrismRAG deployed successfully"
-          echo "  API: ${{ env.API_URL }}"
-          echo "  Docs: ${{ env.API_URL }}/docs"
-          echo "  Image tag: ${{ needs.build.outputs.image_tag }}"
-          echo "============================================"
+          echo "================================================="
+          echo "  PrismRAG live: ${{ env.API_URL }}"
+          echo "  Docs:          ${{ env.API_URL }}/docs"
+          echo "  Image tag:     ${{ needs.build.outputs.image_tag }}"
+          echo "================================================="
