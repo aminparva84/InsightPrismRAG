@@ -34,6 +34,10 @@ class TestMcpTools:
             "deliberate",
             "get_deliberation_session",
             "deliberation_followup",
+            # chunk portability + quality
+            "append_chunks",
+            "export_chunks",
+            "score_chunk_quality",
         ):
             assert expected in names
 

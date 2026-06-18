@@ -178,6 +178,18 @@ class JobRequest(BaseModel):
     mlp_epochs: int | None = Field(None, ge=1, le=1000)
     mlp_recall_target: float | None = Field(None, ge=0.0, le=1.0)
 
+    # Quality / fallback
+    ml_fallback: str = Field(
+        "auto",
+        description=(
+            "When to apply ML-assisted reclassification for low-quality chunks. "
+            "'auto' (default): apply when quality_score < 0.45. "
+            "'always': apply to all chunks. "
+            "'never': skip ML fallback entirely."
+        ),
+        pattern="^(auto|always|never)$",
+    )
+
     webhook_url: str | None = Field(None, description="Called when job completes")
 
     @model_validator(mode="after")

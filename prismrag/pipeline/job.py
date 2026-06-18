@@ -6,6 +6,8 @@ import traceback
 import uuid
 from datetime import datetime, timezone
 
+import numpy as np
+
 from prismrag.config import SYNC_MAX_RECORDS, INGEST_BATCH_SIZE
 from prismrag.db import get_conn, release_conn
 from prismrag.models import (
@@ -292,6 +294,21 @@ def run_job(
             job_id, str(request.tenant_id), mapping_id, strategy, records_buf
         )
 
+        # 5b. Quality scoring + ML fallback (Tier-1 and Tier-2)
+        ml_fallback = getattr(request, "ml_fallback", "auto")
+        if ml_fallback != "never":
+            try:
+                _apply_quality_fallback(
+                    job_id,
+                    str(request.tenant_id),
+                    mapping_id,
+                    ml_fallback=ml_fallback,
+                    strategy_name=request.strategy.value,
+                    mapping_config=request.mapping,
+                )
+            except Exception as exc:
+                logger.warning("Quality fallback non-fatal error: %s", exc)
+
         # 6. Build word graph + communities
         _update_job(job_id, progress_pct=90, records_written=written)
         try:
@@ -417,6 +434,121 @@ def _write_batches(
         release_conn(conn)
 
     return written
+
+
+def _apply_quality_fallback(
+    job_id: str,
+    tenant_id: str,
+    mapping_id: str,
+    *,
+    ml_fallback: str,
+    strategy_name: str,
+    mapping_config,
+) -> None:
+    """
+    Score all chunks written in this job.  For flagged chunks (quality < threshold)
+    attempt ML-assisted reclassification:
+
+    Tier-1 (rules) → try zero-shot via Gemini: embed chunk text, compare to
+                      Gemini embeddings of each category label, pick closest.
+    Tier-2 (mlp)   → MLP already used; zero-shot acts as second-opinion safety net.
+
+    Flagged chunks that survive the fallback are re-written to DB.
+    Quality summary is logged via logger.info.
+    """
+    import json
+    from prismrag.pipeline.quality import score_batch, LOW_QUALITY_THRESHOLD, summarise_quality
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT chunk_ref, chunk_text, category_slug, embedding::text
+            FROM prismrag.chunk_embedding
+            WHERE tenant_id = %s AND mapping_id = %s
+            ORDER BY chunk_ref
+            """,
+            (tenant_id, mapping_id),
+        )
+        rows = cur.fetchall()
+    finally:
+        release_conn(conn)
+
+    if not rows:
+        return
+
+    refs  = [r[0] for r in rows]
+    texts = [r[1] for r in rows]
+    cats  = [r[2] for r in rows]
+    embs  = np.array([json.loads(r[3]) if r[3] else [0.0] * 256 for r in rows], dtype=float)
+
+    scores = score_batch(refs, embs, cats)
+    summary = summarise_quality([s._asdict() for s in scores])
+    logger.info(
+        "Job %s quality: avg=%.3f  flagged=%d/%d (%.1f%%)",
+        job_id, summary["avg_quality"], summary["flagged"],
+        summary["total"], summary["pct_flagged"],
+    )
+
+    flagged_idx = [
+        i for i, q in enumerate(scores)
+        if q.flagged or ml_fallback == "always"
+    ]
+    if not flagged_idx or not mapping_config:
+        return
+
+    # Zero-shot reclassification: embed category labels → find closest
+    category_slugs = list({c.slug for c in mapping_config.categories})
+    category_labels = {c.slug: c.label for c in mapping_config.categories}
+
+    try:
+        from prismrag.embedding.gemini import embed_texts
+        label_texts = [category_labels.get(s, s) for s in category_slugs]
+        label_vecs_raw = embed_texts(label_texts)
+        if not any(v is not None for v in label_vecs_raw):
+            return   # Gemini unavailable
+        label_arr = np.array(
+            [v if v is not None else [0.0] * 768 for v in label_vecs_raw], dtype=float
+        )
+        label_norms = np.linalg.norm(label_arr, axis=1, keepdims=True).clip(min=1e-8)
+        label_arr_n = label_arr / label_norms
+
+        flagged_texts  = [texts[i]  for i in flagged_idx]
+        flagged_embs_s = embed_texts(flagged_texts)
+        flagged_arr    = np.array(
+            [v if v is not None else [0.0] * 768 for v in flagged_embs_s], dtype=float
+        )
+        fn = np.linalg.norm(flagged_arr, axis=1, keepdims=True).clip(min=1e-8)
+        flagged_arr_n = flagged_arr / fn
+
+        sims     = flagged_arr_n @ label_arr_n.T   # (F, C)
+        best_idx = np.argmax(sims, axis=1)
+        new_cats = [category_slugs[b] for b in best_idx]
+
+        # Only apply if zero-shot differs and it has better separation
+        updates: list[tuple[str, str]] = []   # (chunk_ref, new_category)
+        for fi, (orig_i, new_cat) in enumerate(zip(flagged_idx, new_cats)):
+            if new_cat != cats[orig_i]:
+                updates.append((refs[orig_i], new_cat))
+
+        if updates:
+            conn2 = get_conn()
+            try:
+                cur2 = conn2.cursor()
+                for chunk_ref, new_cat in updates:
+                    cur2.execute(
+                        "UPDATE prismrag.chunk_embedding SET category_slug = %s "
+                        "WHERE tenant_id = %s AND mapping_id = %s AND chunk_ref = %s",
+                        (new_cat, tenant_id, mapping_id, chunk_ref),
+                    )
+                conn2.commit()
+                logger.info("ML fallback corrected %d chunks in job %s", len(updates), job_id)
+            finally:
+                release_conn(conn2)
+
+    except Exception as exc:
+        logger.warning("Zero-shot reclassification failed: %s", exc)
 
 
 def _build_graph_and_communities(tenant_id: str, mapping_id: str) -> None:

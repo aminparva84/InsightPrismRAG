@@ -471,6 +471,152 @@ async def export_chunks(
     return result
 
 
+# ── Tier-2 Append: add new chunks to an existing mapping (no full retrain) ────
+
+@router.post("/tenants/{tenant_id}/chunks/append")
+async def append_chunks(
+    tenant_id: str,
+    payload: dict,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Append new chunks to the tenant's active MLP mapping without a full retrain.
+
+    The existing MLP generalises its learned category boundaries to the new chunk
+    texts.  Optionally provide new mapping rules to expand the model — only the
+    final projection layer is fine-tuned (freeze-then-finetune) to avoid
+    catastrophic forgetting.
+
+    Every chunk gets a quality_score (0-1).  Chunks with quality_score < 0.45
+    are flagged.  The ml_fallback param controls whether a zero-shot rule lookup
+    is used to correct flagged chunks.
+
+    Request body:
+      chunks         list of {ref, text} objects  (required, max 5 000)
+      new_rules      list of {word, category_slug, weight?} (optional)
+      ml_fallback    "auto" | "always" | "never"  (default "auto")
+      include_vectors  bool — include the 256-d embedding in each result
+
+    Each returned chunk: {chunk_ref, chunk_text, category_slug, confidence,
+                          quality_score, flagged, embedding?}
+
+    Existing chunks with the same chunk_ref are updated in-place (UPSERT).
+    """
+    from prismrag.pipeline.append import run_append, AppendRequest, ChunkIn, RuleIn
+    from prismrag.pipeline.quality import summarise_quality
+    from prismrag.metering.quota import check_and_record
+
+    check_api_scope(user, "write")
+    assert_tenant_access(user, tenant_id, "write")
+
+    raw_chunks = payload.get("chunks", [])
+    if not raw_chunks:
+        raise HTTPException(status_code=422, detail="chunks array is required and must not be empty")
+    if len(raw_chunks) > 5_000:
+        raise HTTPException(status_code=422, detail="Maximum 5,000 chunks per append request")
+
+    ml_fallback = payload.get("ml_fallback", "auto")
+    if ml_fallback not in ("auto", "always", "never"):
+        raise HTTPException(status_code=422, detail="ml_fallback must be 'auto', 'always', or 'never'")
+
+    req = AppendRequest(
+        tenant_id=tenant_id,
+        chunks=[ChunkIn(ref=str(c["ref"]), text=str(c["text"])) for c in raw_chunks],
+        new_rules=[
+            RuleIn(
+                word=str(r["word"]),
+                category_slug=str(r["category_slug"]),
+                weight=float(r.get("weight", 1.0)),
+            )
+            for r in payload.get("new_rules", [])
+        ],
+        ml_fallback=ml_fallback,
+        include_vectors=bool(payload.get("include_vectors", False)),
+    )
+
+    results = await asyncio.to_thread(run_append, req)
+
+    # Meter the ingest
+    check_and_record(user, "ingest_chunk", units=len(results), tenant_id=tenant_id)
+
+    quality_scores = [
+        {"chunk_ref": r.chunk_ref, "confidence": r.confidence,
+         "quality_score": r.quality_score, "flagged": r.flagged}
+        for r in results
+    ]
+    summary = summarise_quality(quality_scores)
+
+    return {
+        "tenant_id":  tenant_id,
+        "appended":   len(results),
+        "summary":    summary,
+        "chunks": [
+            {
+                "chunk_ref":     r.chunk_ref,
+                "chunk_text":    r.chunk_text,
+                "category_slug": r.category_slug,
+                "confidence":    r.confidence,
+                "quality_score": r.quality_score,
+                "flagged":       r.flagged,
+                **({"embedding": r.embedding} if req.include_vectors and r.embedding else {}),
+            }
+            for r in results
+        ],
+    }
+
+
+@router.get("/tenants/{tenant_id}/chunks/quality")
+async def chunk_quality_report(
+    tenant_id: str,
+    mapping_id: str | None = None,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Return quality scores for all chunks in a mapping.
+
+    Scores three metrics per chunk:
+      confidence   How decisively the category was assigned (0-1)
+      separation   Distance gap to nearest rival centroid (0-1)
+      coherence    Avg cosine sim to 5 nearest same-category peers (0-1)
+      quality_score  Weighted combination: 0.4*conf + 0.4*sep + 0.2*coh
+
+    Chunks with quality_score < 0.45 are flagged for review.
+
+    Returns a summary dict + full per-chunk breakdown.
+    Consider running POST /tenants/{id}/chunks/append with ml_fallback='auto'
+    to automatically correct flagged chunks.
+    """
+    from prismrag.pipeline.quality import score_mapping_from_db, summarise_quality
+    from prismrag.db import get_conn, release_conn
+
+    assert_tenant_access(user, tenant_id, "read")
+
+    def _run():
+        mid = mapping_id
+        if not mid:
+            conn = get_conn()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT id FROM prismrag.mapping_version "
+                    "WHERE tenant_id = %s AND status = 'active' "
+                    "ORDER BY version DESC LIMIT 1",
+                    (tenant_id,),
+                )
+                row = cur.fetchone()
+            finally:
+                release_conn(conn)
+            if not row:
+                return {"summary": {}, "chunks": [], "mapping_id": None}
+            mid = str(row[0])
+
+        chunk_scores = score_mapping_from_db(tenant_id, mid)
+        summary = summarise_quality(chunk_scores)
+        return {"mapping_id": mid, "summary": summary, "chunks": chunk_scores}
+
+    return await asyncio.to_thread(_run)
+
+
 # ── Tenant management ─────────────────────────────────────────────────────────
 
 @router.get("/tenants")

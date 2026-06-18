@@ -434,6 +434,267 @@ def _handle_deliberation_followup(args: dict) -> str:
     return f"Follow-up Answer:\n{res.get('answer', 'No answer returned.')}"
 
 
+# ── Chunk portability + quality tool definitions ───────────────────────────────
+
+TOOLS.extend([
+    {
+        "name": "append_chunks",
+        "description": (
+            "Tier-2: Append new raw chunks to an existing MLP mapping — no full retrain. "
+            "The existing MLP generalises its learned category boundaries to the new texts. "
+            "Optionally provide new mapping rules to expand the vocabulary; only the final "
+            "projection layer is fine-tuned (freeze-then-finetune). "
+            "Every chunk gets a quality_score (0-1). Flagged chunks (score < 0.45) can be "
+            "auto-corrected via the ml_fallback parameter. "
+            "Existing chunks with the same ref are updated in-place (UPSERT). "
+            "Use this when you have new source data and want updated category tags and embeddings "
+            "without reprocessing the whole dataset."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tenant_id": {
+                    "type": "string",
+                    "description": "Workspace ID (uses default if omitted)"
+                },
+                "chunks": {
+                    "type": "array",
+                    "description": "New chunks to categorise (max 5,000)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ref":  {"type": "string", "description": "Unique chunk reference ID"},
+                            "text": {"type": "string", "description": "Chunk text content"}
+                        },
+                        "required": ["ref", "text"]
+                    }
+                },
+                "new_rules": {
+                    "type": "array",
+                    "description": "Optional new word-to-category rules to expand the mapping",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "word":          {"type": "string"},
+                            "category_slug": {"type": "string"},
+                            "weight":        {"type": "number", "default": 1.0}
+                        },
+                        "required": ["word", "category_slug"]
+                    }
+                },
+                "ml_fallback": {
+                    "type": "string",
+                    "enum": ["auto", "always", "never"],
+                    "description": (
+                        "'auto' (default): correct flagged chunks via rule lookup. "
+                        "'always': apply rule lookup to every chunk. "
+                        "'never': trust MLP only."
+                    ),
+                    "default": "auto"
+                },
+                "include_vectors": {
+                    "type": "boolean",
+                    "description": "Include 256-d personal embedding in each result",
+                    "default": False
+                }
+            },
+            "required": ["chunks"]
+        }
+    },
+    {
+        "name": "export_chunks",
+        "description": (
+            "Export paginated remapped chunks from a workspace for use in your own pgvector. "
+            "Returns chunk text, assigned category slug, and optionally the 256-d embedding. "
+            "Use this to populate your own vector store and run retrieval without depending "
+            "on the PrismRAG search API at runtime. "
+            "Requires Starter plan or above. Metered at your plan's export quota."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tenant_id": {
+                    "type": "string",
+                    "description": "Workspace ID (uses default if omitted)"
+                },
+                "mapping_id": {
+                    "type": "string",
+                    "description": "Optional mapping version UUID; defaults to active mapping"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional: filter to one category slug"
+                },
+                "page": {
+                    "type": "integer",
+                    "description": "Page number (1-based, default 1)",
+                    "default": 1
+                },
+                "page_size": {
+                    "type": "integer",
+                    "description": "Results per page (default 1000, max 5000)",
+                    "default": 1000
+                },
+                "include_vectors": {
+                    "type": "boolean",
+                    "description": "Include the 256-d embedding in each result",
+                    "default": False
+                }
+            }
+        }
+    },
+    {
+        "name": "score_chunk_quality",
+        "description": (
+            "Compute quality scores for all chunks in a mapping. "
+            "Returns confidence, separation, coherence, and a combined quality_score (0-1) "
+            "for each chunk, plus an aggregate summary. "
+            "Chunks with quality_score < 0.45 are flagged — use append_chunks with "
+            "ml_fallback='auto' to automatically reclassify them."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tenant_id": {
+                    "type": "string",
+                    "description": "Workspace ID (uses default if omitted)"
+                },
+                "mapping_id": {
+                    "type": "string",
+                    "description": "Optional: specific mapping version UUID"
+                }
+            }
+        }
+    },
+])
+
+
+# ── New tool handlers ─────────────────────────────────────────────────────────
+
+def _handle_append_chunks(args: dict) -> str:
+    tenant = args.get("tenant_id") or TENANT_ID
+    if not tenant:
+        return "Error: tenant_id required. Set PRISMRAG_TENANT_ID env var or pass tenant_id."
+    chunks = args.get("chunks", [])
+    if not chunks:
+        return "Error: chunks array is required and must not be empty."
+
+    result = _call("post", f"/api/v1/prismrag/tenants/{tenant}/chunks/append", json={
+        "chunks":          chunks,
+        "new_rules":       args.get("new_rules", []),
+        "ml_fallback":     args.get("ml_fallback", "auto"),
+        "include_vectors": args.get("include_vectors", False),
+    })
+
+    summary = result.get("summary", {})
+    appended = result.get("appended", 0)
+    flagged  = summary.get("flagged", 0)
+    avg_q    = summary.get("avg_quality", 0.0)
+
+    lines = [
+        f"Appended {appended} chunk(s) to workspace {tenant[:8]}...",
+        f"Quality: avg={avg_q:.3f}  flagged={flagged}/{appended}",
+        "",
+    ]
+    for c in (result.get("chunks") or [])[:20]:
+        flag = " ⚠" if c.get("flagged") else ""
+        lines.append(
+            f"  [{c.get('quality_score', 0):.2f}]{flag} {c.get('chunk_ref')} "
+            f"→ {c.get('category_slug')}  (conf={c.get('confidence', 0):.2f})"
+        )
+    if appended > 20:
+        lines.append(f"  ... and {appended - 20} more")
+    if flagged:
+        lines.append(
+            f"\n{flagged} chunk(s) flagged for low quality. "
+            "Re-run with ml_fallback='always' to force reclassification."
+        )
+    return "\n".join(lines)
+
+
+def _handle_export_chunks(args: dict) -> str:
+    tenant = args.get("tenant_id") or TENANT_ID
+    if not tenant:
+        return "Error: tenant_id required."
+
+    params: dict = {
+        "page":            args.get("page", 1),
+        "page_size":       args.get("page_size", 1000),
+        "include_vectors": args.get("include_vectors", False),
+    }
+    if args.get("mapping_id"):
+        params["mapping_id"] = args["mapping_id"]
+    if args.get("category"):
+        params["category"] = args["category"]
+
+    result = _call("get", f"/api/v1/prismrag/tenants/{tenant}/chunks", params=params)
+
+    total    = result.get("total", 0)
+    page     = result.get("page", 1)
+    has_more = result.get("has_more", False)
+    chunks   = result.get("chunks", [])
+
+    lines = [
+        f"Exported {len(chunks)} chunk(s)  (page {page}, total={total}, has_more={has_more})",
+        f"Mapping: {result.get('mapping_id', '?')[:8]}...",
+        "",
+    ]
+    for c in chunks[:10]:
+        lines.append(
+            f"  {c.get('chunk_ref')} | {c.get('category_slug')} | "
+            f"{(c.get('chunk_text') or '')[:80]}"
+        )
+    if len(chunks) > 10:
+        lines.append(f"  ... and {len(chunks) - 10} more on this page")
+    if has_more:
+        lines.append(f"\nMore pages available — request page={page + 1} to continue.")
+    return "\n".join(lines)
+
+
+def _handle_score_chunk_quality(args: dict) -> str:
+    tenant = args.get("tenant_id") or TENANT_ID
+    if not tenant:
+        return "Error: tenant_id required."
+
+    params: dict = {}
+    if args.get("mapping_id"):
+        params["mapping_id"] = args["mapping_id"]
+
+    result = _call("get", f"/api/v1/prismrag/tenants/{tenant}/chunks/quality", params=params)
+    summary = result.get("summary", {})
+    chunks  = result.get("chunks", [])
+
+    if not chunks:
+        return "No chunks found. Submit an ingest job first."
+
+    flagged_chunks = [c for c in chunks if c.get("flagged")]
+    lines = [
+        f"Chunk Quality Report — workspace {tenant[:8]}...",
+        f"Mapping: {result.get('mapping_id', '?')[:8]}...",
+        "",
+        f"  Total chunks:      {summary.get('total', 0)}",
+        f"  Avg quality:       {summary.get('avg_quality', 0):.3f}",
+        f"  Avg confidence:    {summary.get('avg_confidence', 0):.3f}",
+        f"  Avg separation:    {summary.get('avg_separation', 0):.3f}",
+        f"  Avg coherence:     {summary.get('avg_coherence', 0):.3f}",
+        f"  Flagged (< 0.45):  {summary.get('flagged', 0)} ({summary.get('pct_flagged', 0):.1f}%)",
+        f"  P50 quality:       {summary.get('p50_quality', 0):.3f}",
+        "",
+    ]
+    if flagged_chunks:
+        lines.append("Lowest quality chunks:")
+        for c in sorted(flagged_chunks, key=lambda x: x.get("quality_score", 1))[:10]:
+            lines.append(
+                f"  ⚠ {c.get('chunk_ref')} | quality={c.get('quality_score', 0):.3f} "
+                f"conf={c.get('confidence', 0):.3f} sep={c.get('separation', 0):.3f}"
+            )
+        lines.append(
+            "\nTip: POST /tenants/{id}/chunks/append with ml_fallback='auto' "
+            "to automatically reclassify flagged chunks."
+        )
+    return "\n".join(lines)
+
+
 # Add deliberation tools to TOOLS list
 TOOLS.extend([
     {
@@ -504,6 +765,10 @@ _HANDLERS = {
     "deliberate":                _handle_deliberate,
     "get_deliberation_session":  _handle_get_deliberation_session,
     "deliberation_followup":     _handle_deliberation_followup,
+    # chunk portability + quality
+    "append_chunks":             _handle_append_chunks,
+    "export_chunks":             _handle_export_chunks,
+    "score_chunk_quality":       _handle_score_chunk_quality,
 }
 
 
