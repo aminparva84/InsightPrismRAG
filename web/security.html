@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Security FAQ — PrismRAG</title>
+  <style>
+    :root{--bg:#0f1117;--surface:#1a1d27;--border:#2a2d3e;--accent:#7c6af7;--text:#e2e8f0;--muted:#718096;--green:#48bb78;--yellow:#f6ad55;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+    header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;height:56px;gap:24px;}
+    header .logo{font-size:1rem;font-weight:700;color:var(--accent);margin-right:auto;}
+    header a{color:var(--muted);text-decoration:none;font-size:.875rem;}
+    header a:hover{color:var(--text);}
+    .container{max-width:860px;margin:0 auto;padding:60px 24px 100px;}
+    h1{font-size:2rem;font-weight:700;margin-bottom:8px;}
+    .meta{color:var(--muted);font-size:.875rem;margin-bottom:48px;}
+    h2{font-size:1.25rem;font-weight:700;margin:48px 0 20px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:10px;}
+    .faq{margin-bottom:32px;}
+    .faq-q{font-size:.9375rem;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;}
+    .faq-q::before{content:"Q";background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:2px;}
+    .faq-a{font-size:.9rem;color:#cbd5e0;margin-left:34px;}
+    .badge-row{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0;}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:.8rem;font-weight:600;border:1px solid;}
+    .badge.green{color:var(--green);border-color:var(--green);background:rgba(72,187,120,.08);}
+    .badge.yellow{color:var(--yellow);border-color:var(--yellow);background:rgba(246,173,85,.08);}
+    .badge.purple{color:var(--accent);border-color:var(--accent);background:rgba(124,106,247,.08);}
+    table{width:100%;border-collapse:collapse;margin:20px 0;font-size:.875rem;}
+    th,td{padding:10px 14px;border:1px solid var(--border);text-align:left;vertical-align:top;}
+    th{background:var(--surface);color:var(--muted);font-weight:600;}
+    .callout{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:16px 20px;margin:20px 0;font-size:.875rem;color:#cbd5e0;}
+    .contact-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;margin-top:48px;text-align:center;}
+    .contact-box h3{font-size:1.1rem;margin-bottom:10px;}
+    .contact-box p{color:var(--muted);font-size:.9rem;margin-bottom:16px;}
+    .btn{display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:.875rem;font-weight:600;}
+    code{background:rgba(124,106,247,.12);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:.85em;font-family:monospace;}
+  </style>
+</head>
+<body>
+<header>
+  <span class="logo">⬡ PrismRAG</span>
+  <a href="/">Home</a>
+  <a href="/api-docs.html">API Docs</a>
+  <a href="/dpa.html">DPA</a>
+  <a href="/terms.html">Terms</a>
+  <a href="/privacy.html">Privacy</a>
+</header>
+
+<div class="container">
+  <h1>Security FAQ</h1>
+  <p class="meta">Last updated: June 2026 · Questions? <a href="mailto:security@insightits.com" style="color:var(--accent)">security@insightits.com</a></p>
+
+  <div class="badge-row">
+    <span class="badge green">✓ TLS 1.3 in transit</span>
+    <span class="badge green">✓ AES-256 at rest</span>
+    <span class="badge green">✓ SOC 2 (in progress)</span>
+    <span class="badge purple">✓ GDPR / CCPA compliant</span>
+    <span class="badge purple">✓ Multi-tenant isolation</span>
+    <span class="badge yellow">⟳ Pen test Q3 2026</span>
+  </div>
+
+  <!-- ── Infrastructure ─────────────────────────────── -->
+  <h2>Infrastructure &amp; Hosting</h2>
+
+  <div class="faq">
+    <p class="faq-q">Where is PrismRAG hosted?</p>
+    <p class="faq-a">PrismRAG runs on Microsoft Azure Container Apps (US East by default). Enterprise plans can request EU West (Ireland) or AP Southeast (Singapore) data residency — contact sales to enable a regional deployment for your organization.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">What uptime SLA do you offer?</p>
+    <p class="faq-a">We target 99.9% monthly uptime for Professional and Enterprise plans. Current and historical status is available at <a href="/status.html" style="color:var(--accent)">/status</a>. The SLA with credit terms is defined in our <a href="/sla.html" style="color:var(--accent)">SLA page</a>.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Is the infrastructure shared or dedicated?</p>
+    <p class="faq-a">All plans use shared compute infrastructure (multi-tenant). Database rows are isolated by <code>tenant_id</code> with Row-Level Security enforced at the Postgres layer. Enterprise plans can request a dedicated namespace — contact sales.</p>
+  </div>
+
+  <!-- ── Data &amp; Encryption ──────────────────────── -->
+  <h2>Data &amp; Encryption</h2>
+
+  <div class="faq">
+    <p class="faq-q">How is data encrypted?</p>
+    <p class="faq-a">All data is encrypted in transit with TLS 1.3. Data at rest (Postgres, vector embeddings, model weights) is encrypted with AES-256 via Azure managed keys. Enterprise customers can supply their own Azure Key Vault key (CMEK) — contact sales to configure.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Who can access my mapping data and embeddings?</p>
+    <p class="faq-a">Your data is strictly isolated by tenant. Insight IT Solutions staff cannot query your tenant data without explicit written consent. Access is logged in an immutable audit trail. We never train our foundation models on your proprietary data.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Do you process personal data (PII)?</p>
+    <p class="faq-a">PrismRAG is designed to process domain vocabulary, mapping rules, and semantic vectors — not PII. If your use case involves PII (e.g., patient names in a healthcare mapping), execute a Data Processing Agreement (DPA) before ingesting. Our <a href="/dpa.html" style="color:var(--accent)">standard DPA</a> is available for download and execution.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Can I delete my data?</p>
+    <p class="faq-a">Yes. Deleting a tenant via the API permanently removes all mapping versions, chunk embeddings, graph data, and model weights within 72 hours. For a certified deletion certificate (required by some compliance frameworks), contact <a href="mailto:privacy@insightits.com" style="color:var(--accent)">privacy@insightits.com</a>.</p>
+  </div>
+
+  <!-- ── Auth &amp; Access ────────────────────────── -->
+  <h2>Authentication &amp; Access Control</h2>
+
+  <div class="faq">
+    <p class="faq-q">What authentication methods are supported?</p>
+    <p class="faq-a">
+      <strong>Email + password</strong> (bcrypt, PBKDF2 fallback) — all plans.<br>
+      <strong>API keys</strong> (<code>prk_…</code> prefix, SHA-256 hashed in DB) — all plans.<br>
+      <strong>SSO / OIDC</strong> (Azure AD, Okta, Google Workspace, any OIDC-compliant IdP) — Professional and Enterprise.<br>
+      <strong>SCIM 2.0</strong> provisioning (RFC 7644) — Enterprise only.
+    </p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Is MFA available?</p>
+    <p class="faq-a">Yes. TOTP-based MFA (RFC 6238, compatible with Google Authenticator, Authy, 1Password) is available for all plans. Enterprise organizations can enforce MFA org-wide — any user without MFA enabled will be blocked from API access until they enrol at <code>/api/v1/mfa/enrol</code>.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Can I restrict API access to specific IP addresses?</p>
+    <p class="faq-a">Yes — Enterprise feature. Org admins can define a CIDR allowlist via <code>PUT /api/v1/org/{org_id}/security/ip-allowlist</code>. When enabled, any request from an IP outside the allowlist is rejected with HTTP 403 before authentication runs.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">What rate limits apply?</p>
+    <p class="faq-a">Every API response includes <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>X-RateLimit-Reset</code> headers so your client can implement back-off proactively.</p>
+    <table style="margin-top:12px;">
+      <thead><tr><th>Plan</th><th>Requests / minute</th><th>Monthly chunks</th></tr></thead>
+      <tbody>
+        <tr><td>Free</td><td>30</td><td>10,000</td></tr>
+        <tr><td>Starter</td><td>120</td><td>100,000</td></tr>
+        <tr><td>Professional</td><td>600</td><td>1,000,000</td></tr>
+        <tr><td>Enterprise</td><td>Unlimited</td><td>Negotiated</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Compliance ──────────────────────────────── -->
+  <h2>Compliance &amp; Certifications</h2>
+
+  <div class="faq">
+    <p class="faq-q">Are you SOC 2 certified?</p>
+    <p class="faq-a">We are currently undergoing SOC 2 Type II audit (target completion Q4 2026). In the meantime, we provide a security questionnaire, architecture overview, and reference architecture document upon request under NDA.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Are you GDPR / CCPA compliant?</p>
+    <p class="faq-a">Yes. We act as a Data Processor under GDPR and CCPA. Our <a href="/dpa.html" style="color:var(--accent)">DPA</a> covers lawful basis, data subject rights (access, erasure, portability), breach notification (within 48 hours), and subprocessor obligations. EU customers can request Standard Contractual Clauses (SCCs) by emailing <a href="mailto:privacy@insightits.com" style="color:var(--accent)">privacy@insightits.com</a>.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Have you had an independent penetration test?</p>
+    <p class="faq-a">A penetration test is scheduled for Q3 2026 with an accredited third-party firm. Report summaries will be available to Enterprise customers under NDA upon completion.</p>
+  </div>
+
+  <div class="faq">
+    <p class="faq-q">Do you have a bug bounty program?</p>
+    <p class="faq-a">We operate a responsible disclosure program. If you discover a vulnerability, email <a href="mailto:security@insightits.com" style="color:var(--accent)">security@insightits.com</a> with details. We target a 48-hour acknowledgement and 30-day remediation window for critical issues. A formal bug bounty program is planned for H2 2026.</p>
+  </div>
+
+  <!-- ── Sub-processors ─────────────────────────── -->
+  <h2>Sub-processors</h2>
+
+  <div class="callout">
+    Enterprise customers will be notified of any new sub-processors at least 10 days before they are engaged, with the right to object.
+  </div>
+
+  <table>
+    <thead><tr><th>Sub-processor</th><th>Purpose</th><th>Region</th></tr></thead>
+    <tbody>
+      <tr><td>Microsoft Azure</td><td>Container hosting, managed Postgres, Key Vault</td><td>US East (EU West optional)</td></tr>
+      <tr><td>Google Gemini API</td><td>768-d semantic text embedding</td><td>US</td></tr>
+      <tr><td>Stripe</td><td>Payment processing and subscription billing</td><td>US / EU</td></tr>
+      <tr><td>Azure Communication Services</td><td>Transactional email (receipts, alerts)</td><td>US</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ── Contact ─────────────────────────────────── -->
+  <div class="contact-box">
+    <h3>Have a security question not covered here?</h3>
+    <p>Our security team responds to all inquiries within one business day.</p>
+    <a href="mailto:security@insightits.com" class="btn">Email security@insightits.com</a>
+  </div>
+</div>
+</body>
+</html>

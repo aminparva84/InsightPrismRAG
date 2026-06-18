@@ -15,7 +15,22 @@ OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET") or os.getenv("PRISMRAG_OIDC
 OIDC_REDIRECT_URI = os.getenv("OIDC_REDIRECT_URI") or os.getenv("PRISMRAG_OIDC_REDIRECT_URI") or ""
 OIDC_SCOPES = os.getenv("OIDC_SCOPES", "openid email profile")
 
-# In-memory state store (use Redis in multi-instance production)
+_STATE_TTL = 600  # 10 minutes
+
+
+def _redis():
+    """Return a Redis client if REDIS_URL is configured, else None."""
+    url = os.getenv("REDIS_URL") or os.getenv("PRISMRAG_REDIS_URL")
+    if not url:
+        return None
+    try:
+        import redis
+        return redis.from_url(url, decode_responses=True, socket_timeout=2)
+    except Exception:
+        return None
+
+
+# Fallback in-memory store — used only when Redis is unavailable (single-instance dev)
 _pending_states: dict[str, float] = {}
 
 
@@ -38,7 +53,13 @@ def build_authorize_url() -> tuple[str, str]:
 
     meta = _discovery()
     state = secrets.token_urlsafe(32)
-    _pending_states[state] = __import__("time").time()
+
+    r = _redis()
+    if r:
+        r.setex(f"oidc:state:{state}", _STATE_TTL, "1")
+    else:
+        import time as _time
+        _pending_states[state] = _time.time()
 
     params = {
         "client_id": OIDC_CLIENT_ID,
@@ -51,7 +72,13 @@ def build_authorize_url() -> tuple[str, str]:
     return url, state
 
 
-def consume_state(state: str, max_age: int = 600) -> bool:
+def consume_state(state: str, max_age: int = _STATE_TTL) -> bool:
+    r = _redis()
+    if r:
+        key = f"oidc:state:{state}"
+        deleted = r.delete(key)
+        return deleted == 1
+
     import time
     ts = _pending_states.pop(state, None)
     if ts is None:

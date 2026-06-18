@@ -21,10 +21,14 @@ from prismrag.api.status_routes import status_router
 from prismrag.api.admin_routes import router as admin_router
 from prismrag.api.dashboard_routes import router as dashboard_router
 from prismrag.api.playground_routes import router as playground_router
+from prismrag.api.security_routes import security_router
 from prismrag.middleware.logging import AuditMiddleware
 from prismrag.middleware.versioning import LegacyApiMiddleware
 from prismrag.middleware.request_id import RequestIdMiddleware
 from prismrag.middleware.metrics import MetricsMiddleware, metrics_endpoint
+from prismrag.middleware.mfa_enforcement import MFAEnforcementMiddleware
+from prismrag.middleware.rate_limit_headers import RateLimitHeadersMiddleware
+from prismrag.middleware.ip_allowlist import IPAllowlistMiddleware
 from prismrag.db import init_schema
 
 logging.basicConfig(
@@ -67,6 +71,9 @@ app.add_middleware(AuditMiddleware)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(LegacyApiMiddleware)
+app.add_middleware(MFAEnforcementMiddleware)
+app.add_middleware(RateLimitHeadersMiddleware)
+app.add_middleware(IPAllowlistMiddleware)
 
 # ── Routers (v1) ──────────────────────────────────────────────────────────────
 app.include_router(router)
@@ -80,6 +87,7 @@ app.include_router(status_router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
 app.include_router(playground_router)
+app.include_router(security_router)
 
 app.get("/metrics", include_in_schema=False)(metrics_endpoint)
 
