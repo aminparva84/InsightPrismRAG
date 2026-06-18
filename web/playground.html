@@ -1208,15 +1208,8 @@ async function createEphemeralTenant() {
 }
 
 async function registerMappings(tenantId, mappings) {
-  // POST a rules-based mapping version
-  const body = {
-    tenant_id: tenantId,
-    strategy: 'rules',
-    categories: mappings.map(m => ({ category_slug: m.category, words: [{ word: m.keyword, weight: 1.0 }] })),
-  };
-  const res = await authFetch('/api/v1/prismrag/mappings', { method: 'POST', body: JSON.stringify(body) });
-  // Non-fatal if mapping endpoint not available
-  if (!res.ok) { log('ℹ Mapping API unavailable — using fallback'); }
+  // Mappings are submitted inline with the ingest job (mapping field in JobRequest).
+  // No separate API call needed — this is a no-op kept for compatibility.
 }
 
 async function submitIngestJob(tenantId, records) {

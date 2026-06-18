@@ -323,83 +323,53 @@ curl -X POST https://api.prismrag.io/api/prismrag/search \
   <section class="dash-section" id="sec-enterprise">
     <div class="dash-header">
       <h1>Enterprise</h1>
-      <p>Organization, SCIM provisioning, and encryption settings</p>
+      <p>SCIM provisioning, workspace members, and advanced security</p>
     </div>
 
-    <div class="dash-card" id="org-none-card">
-      <div class="card-header"><h2>Organization</h2></div>
-      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:16px">
-        Create an organization to enable SCIM provisioning, org-wide MFA policy, and CMEK.
+    <!-- SCIM info — real endpoint exists -->
+    <div class="dash-card">
+      <div class="card-header"><h2>SCIM Provisioning</h2><span class="badge badge-green">Available</span></div>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:12px">
+        Connect your identity provider (Okta, Azure AD, Google Workspace) using SCIM 2.0.
+        Provision and deprovision users automatically.
       </p>
-      <div class="field-row" style="max-width:520px">
-        <div class="field">
-          <label>Organization name</label>
-          <input type="text" id="org-name-input" placeholder="Acme Corp"/>
-        </div>
-        <div class="field">
-          <label>Slug</label>
-          <input type="text" id="org-slug-input" placeholder="acme-corp" pattern="[a-z0-9-]+"/>
-        </div>
+      <div style="background:var(--surface-2);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">
+        SCIM Base URL: <strong id="scim-base-url-display"></strong>
       </div>
-      <div class="field" style="max-width:240px">
-        <label>Data region</label>
-        <select id="org-region-input"></select>
-      </div>
-      <button class="btn-sm-primary" id="org-create-btn" style="margin-top:12px">Create organization</button>
+      <p style="font-size:0.85rem;color:var(--text-muted)">
+        To generate a SCIM bearer token and complete setup, contact
+        <a href="mailto:sales@prismrag.insightits.com" style="color:var(--accent)">sales@prismrag.insightits.com</a>.
+      </p>
     </div>
 
-    <div id="org-settings-wrap" style="display:none">
-      <div class="dash-card">
-        <div class="card-header">
-          <h2 id="org-title">Organization</h2>
-          <span class="badge badge-blue" id="org-region-badge">us-east</span>
-        </div>
-        <div class="stat-row" style="margin-top:12px">
-          <div class="stat-card">
-            <span class="stat-label-sm">SCIM</span>
-            <span class="stat-value" id="org-scim-status">—</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label-sm">MFA required</span>
-            <span class="stat-value" id="org-mfa-status">—</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label-sm">CMEK</span>
-            <span class="stat-value" id="org-cmek-status">—</span>
-          </div>
-        </div>
-        <div class="field-row" style="margin-top:20px;align-items:end">
-          <label class="toggle-label">
-            <input type="checkbox" id="org-mfa-required-toggle"/>
-            Require MFA for all org members
-          </label>
-          <button class="btn-sm-primary" id="org-save-btn">Save policy</button>
-        </div>
+    <!-- Workspace members — real endpoint /api/v1/tenants/{id}/members -->
+    <div class="dash-card" style="margin-top:20px">
+      <div class="card-header">
+        <h2>Workspace Members</h2>
+        <select id="ent-ws-select" style="font-size:0.85rem;padding:4px 8px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+          <option value="">Select workspace…</option>
+        </select>
       </div>
+      <div id="ent-members-list" style="color:var(--text-muted);font-size:0.9rem;padding:12px 0">
+        Select a workspace above to view members.
+      </div>
+    </div>
 
-      <div class="dash-card" style="margin-top:20px">
-        <div class="card-header">
-          <h2>SCIM provisioning</h2>
-          <button class="btn-sm-primary" id="scim-token-btn">Generate SCIM token</button>
-        </div>
-        <p class="card-hint">Base URL for your IdP (Okta, Azure AD): <code id="scim-base-url">/api/v1/scim/v2</code></p>
-        <div id="scim-token-reveal" class="secret-mono" style="display:none;margin-top:12px"></div>
-      </div>
+    <!-- MFA status — real endpoint -->
+    <div class="dash-card" style="margin-top:20px">
+      <div class="card-header"><h2>MFA Status</h2></div>
+      <div id="ent-mfa-status" style="font-size:0.9rem;color:var(--text-muted);padding:8px 0">Loading…</div>
+    </div>
 
-      <div class="dash-card" style="margin-top:20px">
-        <div class="card-header"><h2>Customer-managed keys (CMEK)</h2></div>
-        <div class="field-row">
-          <div class="field">
-            <label>Azure Key Vault URL</label>
-            <input type="text" id="cmek-vault-input" placeholder="https://myvault.vault.azure.net/"/>
-          </div>
-          <div class="field">
-            <label>Key name</label>
-            <input type="text" id="cmek-key-input" placeholder="prismrag-data-key"/>
-          </div>
-        </div>
-        <button class="btn-sm-primary" id="cmek-save-btn" style="margin-top:12px">Configure CMEK</button>
-      </div>
+    <!-- Upgrade CTA for org-level features -->
+    <div class="dash-card" style="margin-top:20px;border:1px solid var(--accent-dim,#3b4cca44)">
+      <div class="card-header"><h2>Organization-wide Controls</h2><span class="badge badge-gray">Enterprise plan</span></div>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:16px">
+        Org-wide MFA enforcement, Customer-managed encryption keys (CMEK), IP allowlists, and SSO are available on the Enterprise plan.
+      </p>
+      <a href="mailto:sales@prismrag.insightits.com?subject=Enterprise%20Plan%20Inquiry" class="btn-sm-primary" style="display:inline-block;text-decoration:none">
+        Contact sales →
+      </a>
     </div>
   </section>
 

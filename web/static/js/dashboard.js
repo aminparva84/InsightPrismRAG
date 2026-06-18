@@ -657,87 +657,65 @@ document.getElementById('mfa-disable-btn')?.addEventListener('click', async () =
   loadMfaStatus();
 });
 
-/* ── Enterprise org / SCIM / CMEK ─────────────────────────────────────────── */
+/* ── Enterprise — SCIM info, workspace members, MFA status ─────────────────── */
 async function loadEnterprise() {
-  const regionsRes = await apiFetch('/api/v1/auth/regions');
-  if (regionsRes?.ok) {
-    const { regions } = await regionsRes.json();
-    const sel = document.getElementById('org-region-input');
-    if (sel && !sel.options.length) {
-      sel.innerHTML = regions.map(r =>
-        `<option value="${escHtml(r.id)}">${escHtml(r.label || r.id)}</option>`
-      ).join('');
-    }
+  // SCIM base URL — static display
+  const scimEl = document.getElementById('scim-base-url-display');
+  if (scimEl) scimEl.textContent = `${window.location.origin}/api/v1/scim/v2`;
+
+  // MFA status — real endpoint
+  const mfaRes = await apiFetch('/api/v1/auth/mfa/status');
+  const mfaEl = document.getElementById('ent-mfa-status');
+  if (mfaRes?.ok && mfaEl) {
+    const mfa = await mfaRes.json();
+    mfaEl.innerHTML = `
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <span>Your MFA: <strong>${mfa.mfa_enabled ? '✓ Enabled' : '✗ Disabled'}</strong></span>
+        <span>Org policy: <strong>${mfa.org_mfa_required ? 'Required' : 'Not enforced'}</strong></span>
+      </div>
+      ${!mfa.mfa_enabled ? '<p style="margin-top:8px;font-size:0.85rem;color:var(--text-muted)">Enable MFA in the <a href="#" class="goto-security" style="color:var(--accent)">Security</a> tab.</p>' : ''}
+    `;
+    mfaEl.querySelector('.goto-security')?.addEventListener('click', e => {
+      e.preventDefault(); switchSection('security');
+    });
+  } else if (mfaEl) {
+    mfaEl.textContent = 'Could not load MFA status.';
   }
 
-  const res = await apiFetch('/api/v1/auth/organizations/me');
-  if (res?.status === 404) {
-    document.getElementById('org-none-card').style.display = 'block';
-    document.getElementById('org-settings-wrap').style.display = 'none';
-    return;
+  // Populate workspace selector
+  const wsTenants = await apiFetch('/api/v1/prismrag/tenants');
+  const sel = document.getElementById('ent-ws-select');
+  if (wsTenants?.ok && sel) {
+    const tenants = await wsTenants.json();
+    sel.innerHTML = '<option value="">Select workspace…</option>' +
+      tenants.map(t => `<option value="${escHtml(t.tenant_id)}">${escHtml(t.name)}</option>`).join('');
   }
-  if (!res?.ok) return;
-
-  const org = await res.json();
-  document.getElementById('org-none-card').style.display = 'none';
-  document.getElementById('org-settings-wrap').style.display = 'block';
-  document.getElementById('org-title').textContent = org.name;
-  document.getElementById('org-region-badge').textContent = org.data_region;
-  document.getElementById('org-scim-status').textContent = org.scim_enabled ? 'On' : 'Off';
-  document.getElementById('org-mfa-status').textContent = org.mfa_required ? 'Required' : 'Optional';
-  document.getElementById('org-cmek-status').textContent = org.cmek_enabled ? 'Enabled' : 'Off';
-  document.getElementById('org-mfa-required-toggle').checked = org.mfa_required;
-  document.getElementById('scim-base-url').textContent =
-    `${window.location.origin}/api/v1/scim/v2`;
 }
 
-document.getElementById('org-create-btn')?.addEventListener('click', async () => {
-  const name = document.getElementById('org-name-input').value.trim();
-  const slug = document.getElementById('org-slug-input').value.trim().toLowerCase();
-  const data_region = document.getElementById('org-region-input').value;
-  if (!name || !slug) { alert('Name and slug are required'); return; }
-  const res = await apiFetch('/api/v1/auth/organizations', {
-    method: 'POST',
-    body: JSON.stringify({ name, slug, data_region, scim_enabled: true }),
-  });
-  if (!res?.ok) {
-    const err = await res.json().catch(() => ({}));
-    alert(err.detail || 'Failed to create organization');
-    return;
-  }
-  loadEnterprise();
-});
-
-document.getElementById('org-save-btn')?.addEventListener('click', async () => {
-  const mfa_required = document.getElementById('org-mfa-required-toggle').checked;
-  const res = await apiFetch('/api/v1/auth/organizations/me', {
-    method: 'PATCH',
-    body: JSON.stringify({ mfa_required }),
-  });
-  if (res?.ok) loadEnterprise();
-  else alert('Could not save organization policy');
-});
-
-document.getElementById('scim-token-btn')?.addEventListener('click', async () => {
-  const res = await apiFetch('/api/v1/auth/organizations/scim-token?label=IdP', { method: 'POST', body: '{}' });
-  if (!res?.ok) { alert('Could not generate SCIM token'); return; }
-  const data = await res.json();
-  const box = document.getElementById('scim-token-reveal');
-  box.textContent = `Token (copy now): ${data.token}\nSCIM URL: ${data.scim_base_url}`;
-  box.style.display = 'block';
-  loadEnterprise();
-});
-
-document.getElementById('cmek-save-btn')?.addEventListener('click', async () => {
-  const vault_url = document.getElementById('cmek-vault-input').value.trim();
-  const key_name = document.getElementById('cmek-key-input').value.trim();
-  if (!vault_url || !key_name) return;
-  const res = await apiFetch('/api/v1/auth/organizations/cmek', {
-    method: 'POST',
-    body: JSON.stringify({ vault_url, key_name }),
-  });
-  if (res?.ok) loadEnterprise();
-  else alert('CMEK configuration failed — check vault URL and key name');
+document.getElementById('ent-ws-select')?.addEventListener('change', async function() {
+  const tid = this.value;
+  const el = document.getElementById('ent-members-list');
+  if (!el) return;
+  if (!tid) { el.textContent = 'Select a workspace above to view members.'; return; }
+  el.innerHTML = '<div class="loading-state">Loading members…</div>';
+  const res = await apiFetch(`/api/v1/tenants/${tid}/members`);
+  if (!res?.ok) { el.textContent = 'Could not load members.'; return; }
+  const members = await res.json();
+  if (!members.length) { el.textContent = 'No members found.'; return; }
+  el.innerHTML = `<table style="width:100%;font-size:0.875rem">
+    <thead><tr>
+      <th style="text-align:left;padding:6px 0;color:var(--text-dim)">Email</th>
+      <th style="text-align:left;padding:6px 0;color:var(--text-dim)">Name</th>
+      <th style="text-align:left;padding:6px 0;color:var(--text-dim)">Role</th>
+      <th style="text-align:left;padding:6px 0;color:var(--text-dim)">Joined</th>
+    </tr></thead>
+    <tbody>${members.map(m => `<tr>
+      <td style="padding:6px 0">${escHtml(m.email)}</td>
+      <td style="padding:6px 0">${escHtml(m.full_name || '—')}</td>
+      <td style="padding:6px 0"><span class="badge badge-${m.role === 'owner' ? 'blue' : 'gray'}">${escHtml(m.role)}</span></td>
+      <td style="padding:6px 0;color:var(--text-dim)">${m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
 });
 
 /* ── Copy snippet ─────────────────────────────────────────────────────────── */
