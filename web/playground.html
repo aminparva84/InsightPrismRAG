@@ -361,10 +361,36 @@ select { resize: none; }
 <nav class="topnav">
   <span class="logo">⬡ Prism<span>RAG</span> Playground</span>
   <span class="badge-session" id="session-label">SESSION</span>
+
+  <!-- Mode switcher — shown once we know auth state -->
+  <div id="mode-switcher" style="display:none;align-items:center;gap:0;background:#1a1d2e;border:1px solid #252840;border-radius:8px;overflow:hidden;margin:0 8px;">
+    <button id="btn-mode-sandbox" onclick="setMode('sandbox')"
+      style="padding:5px 14px;font-size:.75rem;font-weight:600;border:none;cursor:pointer;background:#7c6af7;color:#fff;transition:background .15s;">
+      Sandbox
+    </button>
+    <button id="btn-mode-mydata" onclick="setMode('mydata')"
+      style="padding:5px 14px;font-size:.75rem;font-weight:600;border:none;cursor:pointer;background:transparent;color:#8892a4;transition:background .15s;">
+      My Data
+    </button>
+  </div>
+
   <a href="/">Home</a>
   <a href="/docs" target="_blank">API Docs</a>
   <a href="/dashboard.html">Dashboard</a>
 </nav>
+
+<!-- ── My Data banner — workspace picker ────────────────────────────────── -->
+<div id="mydata-banner" style="display:none;background:#0f1117;border-bottom:1px solid #252840;padding:10px 24px;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="font-size:.8rem;font-weight:600;color:#8892a4;">Workspace:</span>
+  <select id="workspace-select"
+    style="background:#1a1d2e;color:#e2e8f0;border:1px solid #252840;border-radius:6px;padding:5px 10px;font-size:.8rem;cursor:pointer;min-width:220px;">
+    <option value="">Loading your workspaces…</option>
+  </select>
+  <span id="mydata-status" style="font-size:.775rem;color:#2dd4bf;"></span>
+  <span style="margin-left:auto;font-size:.75rem;color:#8892a4;">
+    Data ingested here is saved to your real workspace and persists after you close this tab.
+  </span>
+</div>
 
 <!-- ── Shell ───────────────────────────────────────────────────────────────── -->
 <div class="shell">
@@ -409,7 +435,7 @@ select { resize: none; }
       <div style="height:16px"></div>
       <div class="sidebar-label">Session</div>
       <div style="padding: 0 20px">
-        <div style="font-size:.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:12px">
+        <div id="sidebar-mode-desc" style="font-size:.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:12px">
           This playground creates a temporary workspace. When you close this tab, all data is automatically deleted.
           Nothing is saved to your account.
         </div>
@@ -746,8 +772,99 @@ if (SESSION.indexed && SESSION.tenantId) {
   gotoStep(2);
 }
 
-/* ── On tab close: delete session tenant ─────────────────────────────────── */
+/* ── Mode: sandbox | mydata ──────────────────────────────────────────────── */
+let PLAY_MODE = sessionStorage.getItem('pg-mode') || 'sandbox';
+
+function setMode(mode) {
+  PLAY_MODE = mode;
+  sessionStorage.setItem('pg-mode', mode);
+  applyMode();
+  if (mode === 'mydata') loadMyWorkspaces();
+}
+
+function applyMode() {
+  const isMy = PLAY_MODE === 'mydata';
+  document.getElementById('btn-mode-sandbox').style.background = isMy ? 'transparent' : '#7c6af7';
+  document.getElementById('btn-mode-sandbox').style.color      = isMy ? '#8892a4' : '#fff';
+  document.getElementById('btn-mode-mydata').style.background  = isMy ? '#2dd4bf' : 'transparent';
+  document.getElementById('btn-mode-mydata').style.color       = isMy ? '#0a0c14' : '#8892a4';
+  document.getElementById('mydata-banner').style.display       = isMy ? 'flex' : 'none';
+  document.getElementById('sidebar-mode-desc').innerHTML       = isMy
+    ? '<strong style="color:#2dd4bf">My Data mode:</strong> Data you ingest here is saved permanently to the selected workspace and accessible via the API.'
+    : 'This playground creates a temporary workspace. When you close this tab, all data is automatically deleted. Nothing is saved to your account.';
+}
+
+async function loadMyWorkspaces() {
+  const sel = document.getElementById('workspace-select');
+  const st  = document.getElementById('mydata-status');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  st.textContent = '';
+  sel.onchange = null;
+
+  await ensureGuestAuth();
+  const res = await authFetch('/api/v1/prismrag/tenants');
+  if (!res || !res.ok) {
+    sel.innerHTML = '<option value="">Could not load workspaces — are you signed in?</option>';
+    st.style.color = '#fc8181';
+    st.textContent = 'Sign in to use My Data mode.';
+    return;
+  }
+  const tenants = await res.json();
+  const real = tenants.filter(t => !t.name?.startsWith('playground-'));
+  if (real.length === 0) {
+    sel.innerHTML = '<option value="">No workspaces yet — create one in the Dashboard</option>';
+    return;
+  }
+  sel.innerHTML = real.map(t =>
+    `<option value="${t.tenant_id || t.id}">${t.name}${t.role === 'owner' ? '' : ' (shared)'}</option>`
+  ).join('');
+  if (SESSION.tenantId && [...sel.options].some(o => o.value === SESSION.tenantId)) {
+    sel.value = SESSION.tenantId;
+  }
+  sel.onchange = onWorkspaceChange;
+  onWorkspaceChange();
+}
+
+async function onWorkspaceChange() {
+  const sel = document.getElementById('workspace-select');
+  const st  = document.getElementById('mydata-status');
+  const tid = sel.value;
+  if (!tid) return;
+  SESSION.tenantId = tid;
+  SESSION.indexed  = true;
+  SESSION.chunks   = [];
+  saveSession();
+  st.style.color = '#8892a4';
+  st.textContent = 'Loading…';
+  const res = await authFetch(`/api/v1/prismrag/tenants/${encodeURIComponent(tid)}/chunks?limit=100`);
+  if (res && res.ok) {
+    const data = await res.json();
+    const chunks = Array.isArray(data) ? data : (data.chunks || data.items || []);
+    SESSION.chunks = chunks;
+    st.style.color = '#2dd4bf';
+    st.textContent = chunks.length > 0
+      ? `${chunks.length} chunk${chunks.length !== 1 ? 's' : ''} already indexed — ready to search`
+      : 'Empty workspace — use the steps below to add data';
+    if (chunks.length > 0) { renderChunkPreview(chunks); setChatReady(); }
+  }
+}
+
+/* ── Boot: detect auth, show mode switcher ───────────────────────────────── */
+(async () => {
+  const stored = localStorage.getItem('prismrag_token');
+  if (!stored) return;
+  SESSION.authToken = stored;
+  const res = await authFetch('/api/v1/auth/me');
+  if (res && res.ok) {
+    document.getElementById('mode-switcher').style.display = 'flex';
+    applyMode();
+    if (PLAY_MODE === 'mydata') loadMyWorkspaces();
+  }
+})();
+
+/* ── On tab close: only delete tenant in sandbox mode ────────────────────── */
 window.addEventListener('beforeunload', () => {
+  if (PLAY_MODE === 'mydata') return; // never wipe real workspace on close
   if (SESSION.tenantId && SESSION.authToken) {
     // Use sendBeacon so it fires even on tab close
     navigator.sendBeacon(
@@ -992,11 +1109,16 @@ async function runIngest() {
     setProgress(10, 'Creating session workspace…');
     log('✓ Auth token obtained');
 
-    // 2. Create ephemeral tenant
-    SESSION.tenantId = await createEphemeralTenant();
-    saveSession();
-    setProgress(20, 'Workspace created');
-    log(`✓ Tenant created: ${SESSION.tenantId.slice(0,8)}…`);
+    // 2. Create or reuse tenant
+    if (PLAY_MODE === 'mydata' && SESSION.tenantId) {
+      setProgress(20, 'Using your workspace…');
+      log(`✓ Connected to workspace: ${SESSION.tenantId.slice(0,8)}…`);
+    } else {
+      SESSION.tenantId = await createEphemeralTenant();
+      saveSession();
+      setProgress(20, 'Workspace created');
+      log(`✓ Tenant created: ${SESSION.tenantId.slice(0,8)}…`);
+    }
 
     // 3. Register mapping version
     if (SESSION.mappings.length > 0) {
