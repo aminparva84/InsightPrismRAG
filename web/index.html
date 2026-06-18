@@ -780,7 +780,7 @@
           <li><span class="check">✓</span> Graph RAG retrieval</li>
           <li><span class="check dim">–</span> Tier-2 MLP training</li>
           <li><span class="check dim">–</span> Bridge vectors</li>
-          <li><span class="check dim">–</span> SQL / API ingestion</li>
+          <li><span class="check dim">–</span> Chunk export / portability</li>
         </ul>
         <a href="/register.html" class="plan-btn ghost">Start free</a>
       </div>
@@ -794,8 +794,8 @@
           <li><span class="check">✓</span> 3 workspaces · 3 mappings</li>
           <li><span class="check">✓</span> CSV / Excel / API ingestion</li>
           <li><span class="check">✓</span> Graph RAG retrieval</li>
+          <li><span class="check">✓</span> Chunk export — 50K chunks/mo included</li>
           <li><span class="check dim">–</span> Tier-2 MLP training</li>
-          <li><span class="check dim">–</span> Bridge vectors</li>
           <li><span class="check">✓</span> Email support</li>
         </ul>
         <a href="/register.html?plan=starter" class="plan-btn ghost" data-plan="starter">Get started</a>
@@ -812,7 +812,8 @@
           <li><span class="check">✓</span> All ingestion sources</li>
           <li><span class="check">✓</span> Tier-2 MLP training</li>
           <li><span class="check">✓</span> Graph RAG + Bridge vectors</li>
-          <li><span class="check">✓</span> Webhook callbacks</li>
+          <li><span class="check">✓</span> Chunk export — 500K chunks/mo included</li>
+          <li><span class="check">✓</span> Webhook push on job complete</li>
           <li><span class="check">✓</span> Priority support</li>
         </ul>
         <a href="/register.html?plan=professional" class="plan-btn primary" data-plan="professional">Start Professional</a>
@@ -824,6 +825,7 @@
         <p class="plan-desc">Unlimited scale, SCIM SSO, CMEK, and dedicated support</p>
         <ul class="plan-features">
           <li><span class="check">✓</span> Unlimited chunks</li>
+          <li><span class="check">✓</span> Unlimited chunk export</li>
           <li><span class="check">✓</span> Unlimited workspaces</li>
           <li><span class="check">✓</span> SCIM SSO + CMEK</li>
           <li><span class="check">✓</span> 99.9% SLA</li>
@@ -831,6 +833,28 @@
         </ul>
         <a href="/register.html?plan=enterprise" class="plan-btn ghost" data-plan="enterprise">Start Enterprise</a>
         <p style="font-size:12px;color:#666;margin-top:12px;">Need custom terms? <a href="mailto:sales@prismrag.io?subject=Enterprise%20Inquiry" style="color:#6c63ff;">Contact sales</a></p>
+      </div>
+    </div>
+
+    <!-- Chunk Export / Portability callout -->
+    <div style="background:linear-gradient(135deg,rgba(124,106,247,.08),rgba(45,212,191,.06));border:1px solid rgba(124,106,247,.25);border-radius:14px;padding:32px 36px;margin-top:40px;display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:0 0 auto;font-size:2rem;">📦</div>
+      <div style="flex:1;min-width:240px;">
+        <h3 style="font-size:1.05rem;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Chunk Export &amp; Portability</h3>
+        <p style="color:#8892a4;font-size:.875rem;line-height:1.65;margin:0 0 12px;">
+          You own your remapped data. Export your categorised chunks — with 256-d embeddings — directly into your own pgvector database.
+          Plug them into any AI agent, LangChain pipeline, or custom RAG system without a runtime dependency on our API.
+        </p>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <div style="font-size:.8rem;color:#7c6af7;"><strong>Starter / Pro</strong> — included in your chunk quota</div>
+          <div style="font-size:.8rem;color:#2dd4bf;"><strong>Overage</strong> — $0.50 per 1,000 chunks exported</div>
+          <div style="font-size:.8rem;color:#48bb78;"><strong>Enterprise</strong> — unlimited export</div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+          <code style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;font-size:.75rem;color:#2dd4bf;">GET /api/v1/prismrag/tenants/{id}/chunks</code>
+          <span style="color:#555;font-size:.8rem;align-self:center;">or</span>
+          <code style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 12px;font-size:.75rem;color:#2dd4bf;">webhook_url → {chunks: [...]}</code>
+        </div>
       </div>
     </div>
 

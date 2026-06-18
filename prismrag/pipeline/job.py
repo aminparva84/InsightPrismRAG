@@ -326,9 +326,10 @@ def run_job(
         from prismrag.middleware.metrics import record_job_completion
         record_job_completion("completed")
 
-        # 7. Webhook callback
+        # 7. Webhook callback — includes remapped chunks for portability
         if request.webhook_url:
-            _fire_webhook(request.webhook_url, job_id, "completed")
+            _fire_webhook(request.webhook_url, job_id, "completed",
+                          tenant_id=str(request.tenant_id), mapping_id=mapping_id_result)
 
         return {"jobId": job_id, "status": "completed",
                 "recordsTotal": total, "recordsWritten": written}
@@ -359,7 +360,7 @@ def run_job(
         from prismrag.middleware.metrics import record_job_completion
         record_job_completion("failed")
         if request.webhook_url:
-            _fire_webhook(request.webhook_url, job_id, "failed")
+            _fire_webhook(request.webhook_url, job_id, "failed")  # no chunks on failure
         raise
 
 
@@ -438,9 +439,41 @@ def _count_communities(tenant_id: str, mapping_id: str) -> int:
         release_conn(conn)
 
 
-def _fire_webhook(url: str, job_id: str, status: str) -> None:
+def _fire_webhook(url: str, job_id: str, status: str,
+                  tenant_id: str | None = None, mapping_id: str | None = None) -> None:
     try:
         import requests
-        requests.post(url, json={"jobId": job_id, "status": status}, timeout=10)
+        payload: dict = {"jobId": job_id, "status": status}
+        if status == "completed" and tenant_id and mapping_id:
+            payload["chunks"] = _export_chunks_for_webhook(tenant_id, mapping_id)
+        requests.post(url, json=payload, timeout=30)
     except Exception as exc:
         logger.warning("Webhook %s failed: %s", url, exc)
+
+
+def _export_chunks_for_webhook(tenant_id: str, mapping_id: str) -> list[dict]:
+    """Return all remapped chunks for this job — pushed in the completed webhook payload."""
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT chunk_ref, chunk_text, category_slug, embedding::text
+            FROM prismrag.chunk_embedding
+            WHERE tenant_id = %s AND mapping_id = %s
+            ORDER BY chunk_ref
+            """,
+            (tenant_id, mapping_id),
+        )
+        import json
+        return [
+            {
+                "chunk_ref":     row[0],
+                "chunk_text":    row[1],
+                "category_slug": row[2],
+                "embedding":     json.loads(row[3]) if row[3] else None,
+            }
+            for row in cur.fetchall()
+        ]
+    finally:
+        release_conn(conn)

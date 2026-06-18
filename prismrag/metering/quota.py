@@ -26,6 +26,7 @@ EventType = Literal[
     "ingest_chunk",    # 1 unit = 1 chunk written
     "mlp_train",       # 1 unit = 1 training run
     "bridge_create",   # 1 unit = 1 bridge vector
+    "chunk_export",    # 1 unit = 1 chunk exported (paid portability)
 ]
 
 # ── Per-plan limits (loaded from DB via prismrag.plans) ───────────────────────
@@ -45,10 +46,19 @@ def _limits_for(plan: str) -> dict:
 
 # ── Overage prices (USD per 1 000 units) ─────────────────────────────────────
 OVERAGE_PRICE_PER_1K: dict[str, float] = {
-    "ingest_chunk": 0.80,
-    "search":       1.50,
-    "mlp_train":    5.00,   # per run, not per-1K
+    "ingest_chunk":  0.80,
+    "search":        1.50,
+    "mlp_train":     5.00,   # per run, not per-1K
     "bridge_create": 2.00,
+    "chunk_export":  0.50,   # $0.50 per 1,000 chunks exported
+}
+
+# Export pricing tiers (chunks exported per month, included in plan)
+EXPORT_INCLUDED_CHUNKS: dict[str, int] = {
+    "free":         0,          # no export on free
+    "starter":      50_000,     # matches ingest quota
+    "professional": 500_000,    # matches ingest quota
+    "enterprise":   0,          # unlimited
 }
 
 # ── Redis client (optional) ───────────────────────────────────────────────────

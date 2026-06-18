@@ -345,6 +345,132 @@ async def list_bridges(
     return await asyncio.to_thread(_query)
 
 
+# ── Chunk export (data portability) ──────────────────────────────────────────
+
+@router.get("/tenants/{tenant_id}/chunks")
+async def export_chunks(
+    tenant_id: str,
+    mapping_id: str | None = None,
+    category: str | None = None,
+    page: int = 1,
+    page_size: int = 1000,
+    include_vectors: bool = False,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Export categorised chunks for use in your own pgvector / RAG pipeline.
+
+    Returns the text, assigned category, chunk reference, and optionally the
+    256-d personal embedding vector. Each exported chunk is metered against
+    your monthly export quota ($0.50 per 1,000 chunks over plan limit).
+
+    - page / page_size: cursor-style pagination (page_size max 5,000)
+    - include_vectors: set true to receive the 256-d embedding array
+    - category: filter to a single category slug
+    - mapping_id: defaults to tenant's active mapping
+
+    Use the returned chunks to INSERT into your own pgvector table:
+      INSERT INTO your_table (text, category, embedding)
+      VALUES (%s, %s, %s::vector)
+    """
+    from prismrag.db import get_conn, release_conn
+    from prismrag.metering.quota import check_and_record, EXPORT_INCLUDED_CHUNKS
+
+    assert_tenant_access(user, tenant_id, "read")
+
+    plan = user.get("plan", "free")
+    if plan == "free":
+        raise HTTPException(
+            status_code=403,
+            detail="Chunk export requires a Starter plan or higher. "
+                   "Upgrade at /dashboard.html#billing",
+        )
+
+    page_size = min(page_size, 5_000)
+    offset    = (max(page, 1) - 1) * page_size
+
+    def _query():
+        conn = get_conn()
+        try:
+            cur = conn.cursor()
+
+            # Resolve active mapping if not specified
+            mid = mapping_id
+            if not mid:
+                cur.execute(
+                    "SELECT id FROM prismrag.mapping_version "
+                    "WHERE tenant_id = %s AND status = 'active' "
+                    "ORDER BY version DESC LIMIT 1",
+                    (tenant_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return {"chunks": [], "mapping_id": None,
+                            "page": page, "page_size": page_size, "total": 0, "has_more": False}
+                mid = str(row[0])
+
+            # Count total for this filter
+            count_sql = """
+                SELECT COUNT(*) FROM prismrag.chunk_embedding
+                WHERE tenant_id = %s AND mapping_id = %s
+            """
+            params: list = [tenant_id, mid]
+            if category:
+                count_sql += " AND category_slug = %s"
+                params.append(category)
+            cur.execute(count_sql, params)
+            total = int(cur.fetchone()[0])
+
+            # Fetch page
+            vec_col = ", embedding::text" if include_vectors else ""
+            fetch_sql = f"""
+                SELECT chunk_ref, chunk_text, category_slug,
+                       mapping_id::text{vec_col}
+                FROM prismrag.chunk_embedding
+                WHERE tenant_id = %s AND mapping_id = %s
+                {("AND category_slug = %s" if category else "")}
+                ORDER BY chunk_ref
+                LIMIT %s OFFSET %s
+            """
+            fetch_params = [tenant_id, mid] + ([category] if category else []) + [page_size, offset]
+            cur.execute(fetch_sql, fetch_params)
+            rows = cur.fetchall()
+
+            chunks = []
+            for row in rows:
+                item: dict = {
+                    "chunk_ref":    row[0],
+                    "chunk_text":   row[1],
+                    "category_slug": row[2],
+                    "mapping_id":   row[3],
+                }
+                if include_vectors and len(row) > 4 and row[4]:
+                    import json
+                    item["embedding"] = json.loads(row[4])
+                chunks.append(item)
+
+            return {
+                "tenant_id":  tenant_id,
+                "mapping_id": mid,
+                "page":       page,
+                "page_size":  page_size,
+                "total":      total,
+                "has_more":   (offset + len(chunks)) < total,
+                "chunks":     chunks,
+            }
+        finally:
+            release_conn(conn)
+
+    result = await asyncio.to_thread(_query)
+
+    # Meter the export — record chunks returned this call
+    exported = len(result.get("chunks", []))
+    if exported > 0:
+        check_and_record(user, "chunk_export", units=exported, tenant_id=tenant_id)
+
+    return result
+
+
 # ── Tenant management ─────────────────────────────────────────────────────────
 
 @router.get("/tenants")
