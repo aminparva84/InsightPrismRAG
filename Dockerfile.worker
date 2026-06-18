@@ -14,5 +14,5 @@ COPY . .
 RUN useradd -m -u 1001 prismrag && chown -R prismrag:prismrag /app
 USER prismrag
 
-# Worker polls Service Bus for large async ingest jobs
-CMD ["python", "-m", "prismrag.worker.service_bus_worker"]
+# Worker: Postgres job queue (inline ingest) + Service Bus (large files)
+CMD ["python", "-m", "prismrag.worker.main"]
