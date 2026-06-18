@@ -160,13 +160,49 @@ pytestmark_live = pytest.mark.live
 class TestChunkQualityEndpoints:
     """Integration tests against a running PrismRAG API."""
 
-    def test_quality_report_returns_summary(self, authed_api, healthcare_tenant, healthcare_ingest):
+    @pytest.fixture(scope="class")
+    def seeded_ingest(self, authed_api, healthcare_tenant):
+        """
+        Ensure the healthcare tenant has at least one completed ingest job
+        so quality and append tests have data to work with.
+        Uses the seeded tenant from the production QA setup — if chunks already
+        exist this is a fast no-op.
+        """
+        from tests.conftest import RAG_API, HEALTHCARE_MAPPING
+        from tests.helpers import poll_job
+
+        r = authed_api.get(
+            authed_api.url(f"{RAG_API}/tenants/{healthcare_tenant}/chunks/quality")
+        )
+        if r.status_code == 200 and r.json().get("summary", {}).get("total", 0) > 0:
+            return  # already has data
+
+        # Submit a small ingest so quality tests have chunks to score
+        from tests.conftest import DOMAIN_CONFIGS
+        import json
+        from pathlib import Path
+        fixture_path = Path(__file__).parent / "fixtures" / "production_sample_records.json"
+        records = json.loads(fixture_path.read_text())["healthcare"]["records"]
+
+        payload = {
+            "tenant_id":   healthcare_tenant,
+            "source_type": "inline",
+            "strategy":    "rules",
+            "mapping":     HEALTHCARE_MAPPING,
+            "inline_config": {"records": records},
+        }
+        r2 = authed_api.post(authed_api.url(f"{RAG_API}/jobs"), json=payload)
+        if r2.status_code in (200, 201, 202):
+            job_id = r2.json().get("job_id") or r2.json().get("id")
+            poll_job(authed_api, RAG_API, job_id, timeout_s=180)
+
+    def test_quality_report_returns_summary(self, authed_api, healthcare_tenant, seeded_ingest):
         """Quality endpoint must return summary + per-chunk scores."""
         from tests.conftest import RAG_API
         r = authed_api.get(
             authed_api.url(f"{RAG_API}/tenants/{healthcare_tenant}/chunks/quality")
         )
-        assert r.status_code == 200, f"Quality endpoint failed: {r.text}"
+        assert r.status_code == 200, f"Quality endpoint failed: {r.status_code} {r.text}"
         body = r.json()
         assert "summary"    in body
         assert "chunks"     in body
@@ -184,9 +220,8 @@ class TestChunkQualityEndpoints:
 
     @pytest.mark.parametrize("domain", ["healthcare", "pharmacy", "finance"])
     def test_quality_threshold(
-        self, domain, authed_api,
+        self, domain, authed_api, seeded_ingest,
         healthcare_tenant, pharmacy_tenant, finance_tenant,
-        healthcare_ingest, pharmacy_ingest, finance_ingest,
     ):
         """At least 70% of chunks in each domain must score above 0.45."""
         from tests.conftest import RAG_API
@@ -199,12 +234,12 @@ class TestChunkQualityEndpoints:
         r = authed_api.get(
             authed_api.url(f"{RAG_API}/tenants/{tenant_id}/chunks/quality")
         )
-        assert r.status_code == 200
+        assert r.status_code == 200, f"{r.status_code} {r.text}"
         body = r.json()
         s = body["summary"]
 
         if s["total"] == 0:
-            pytest.skip("No chunks — ingest may not have completed")
+            pytest.skip(f"{domain}: No chunks found — ingest may not have completed")
 
         pct_good = 100.0 - s["pct_flagged"]
         assert pct_good >= 70.0, (
@@ -213,7 +248,7 @@ class TestChunkQualityEndpoints:
             f"flagged={s['flagged']}/{s['total']}"
         )
 
-    def test_append_chunks_tier2(self, authed_api, healthcare_tenant, healthcare_ingest):
+    def test_append_chunks_tier2(self, authed_api, healthcare_tenant, seeded_ingest):
         """
         Append 3 new chunks to the healthcare mapping.
         Verify they are categorised, quality-scored, and returned correctly.
@@ -227,10 +262,7 @@ class TestChunkQualityEndpoints:
         ]
         r = authed_api.post(
             authed_api.url(f"{RAG_API}/tenants/{healthcare_tenant}/chunks/append"),
-            json={
-                "chunks":      new_chunks,
-                "ml_fallback": "auto",
-            },
+            json={"chunks": new_chunks, "ml_fallback": "auto"},
         )
         assert r.status_code == 200, f"Append failed: {r.status_code} {r.text}"
         body = r.json()
@@ -239,7 +271,6 @@ class TestChunkQualityEndpoints:
         assert len(body["chunks"]) == 3
         assert "summary" in body
 
-        # Every chunk must have required fields
         for chunk in body["chunks"]:
             assert "chunk_ref"     in chunk
             assert "category_slug" in chunk
@@ -247,7 +278,6 @@ class TestChunkQualityEndpoints:
             assert "flagged"       in chunk
             assert 0.0 <= chunk["quality_score"] <= 1.0
 
-        # Category slugs must be known categories from the mapping
         from tests.conftest import DOMAIN_CONFIGS
         valid_cats = {c["slug"] for c in DOMAIN_CONFIGS["healthcare"]["mapping"]["categories"]}
         for chunk in body["chunks"]:
@@ -260,11 +290,8 @@ class TestChunkQualityEndpoints:
             flag = " ⚠" if c["flagged"] else " ✓"
             print(f"  {flag} {c['chunk_ref']} → {c['category_slug']}  (q={c['quality_score']:.3f})")
 
-    def test_append_with_new_rules_extends_mapping(self, authed_api, finance_tenant, finance_ingest):
-        """
-        Append chunks for a new vocabulary area + new rules.
-        The new rules should improve categorisation of those specific terms.
-        """
+    def test_append_with_new_rules_extends_mapping(self, authed_api, finance_tenant, seeded_ingest):
+        """Append chunks for a new vocabulary area + new rules."""
         from tests.conftest import RAG_API
 
         r = authed_api.post(
@@ -275,41 +302,38 @@ class TestChunkQualityEndpoints:
                     {"ref": "esg_002", "text": "Sustainability-linked loan covenant tied to CO2 emissions."},
                 ],
                 "new_rules": [
-                    {"word": "esg",           "category_slug": "risk",      "weight": 2.0},
-                    {"word": "carbon",        "category_slug": "risk",      "weight": 1.5},
-                    {"word": "sustainability","category_slug": "valuation",  "weight": 1.0},
+                    {"word": "esg",            "category_slug": "risk",      "weight": 2.0},
+                    {"word": "carbon",         "category_slug": "risk",      "weight": 1.5},
+                    {"word": "sustainability", "category_slug": "valuation", "weight": 1.0},
                 ],
                 "ml_fallback": "auto",
             },
         )
-        assert r.status_code == 200, f"Append with new rules failed: {r.text}"
+        assert r.status_code == 200, f"Append with new rules failed: {r.status_code} {r.text}"
         body = r.json()
         assert body["appended"] == 2
         print(f"\n[APPEND+RULES: finance]  {body['summary']}")
 
-    def test_append_upsert_updates_existing(self, authed_api, healthcare_tenant, healthcare_ingest):
-        """Appending the same ref twice should update, not create a duplicate."""
+    def test_append_upsert_updates_existing(self, authed_api, healthcare_tenant, seeded_ingest):
+        """Appending the same ref twice should update in-place, not duplicate."""
         from tests.conftest import RAG_API
 
-        chunk = {"ref": "upsert_test_001", "text": "Original text about medication dosing."}
         r1 = authed_api.post(
             authed_api.url(f"{RAG_API}/tenants/{healthcare_tenant}/chunks/append"),
-            json={"chunks": [chunk]},
+            json={"chunks": [{"ref": "upsert_test_001", "text": "Original text about medication dosing."}]},
         )
         assert r1.status_code == 200
 
-        updated = {"ref": "upsert_test_001", "text": "Updated text about insulin administration and glycaemic control."}
         r2 = authed_api.post(
             authed_api.url(f"{RAG_API}/tenants/{healthcare_tenant}/chunks/append"),
-            json={"chunks": [updated]},
+            json={"chunks": [{"ref": "upsert_test_001", "text": "Updated text about insulin administration."}]},
         )
         assert r2.status_code == 200
         body2 = r2.json()
         assert body2["appended"] == 1
-        updated_chunk = body2["chunks"][0]
-        assert updated_chunk["chunk_ref"] == "upsert_test_001"
+        assert body2["chunks"][0]["chunk_ref"] == "upsert_test_001"
 
-    def test_append_empty_chunks_rejected(self, authed_api, healthcare_tenant):
+    def test_append_empty_chunks_rejected(self, authed_api, healthcare_tenant, seeded_ingest):
         """Empty chunks array must return 422."""
         from tests.conftest import RAG_API
         r = authed_api.post(
@@ -318,7 +342,7 @@ class TestChunkQualityEndpoints:
         )
         assert r.status_code == 422
 
-    def test_append_invalid_ml_fallback_rejected(self, authed_api, healthcare_tenant):
+    def test_append_invalid_ml_fallback_rejected(self, authed_api, healthcare_tenant, seeded_ingest):
         """Unknown ml_fallback value must return 422."""
         from tests.conftest import RAG_API
         r = authed_api.post(

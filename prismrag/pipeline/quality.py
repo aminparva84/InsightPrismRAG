@@ -154,21 +154,36 @@ def score_mapping_from_db(tenant_id: str, mapping_id: str) -> list[dict]:
 
 
 def summarise_quality(scores: list[dict]) -> dict:
-    """Aggregate quality scores into a summary dict."""
+    """Aggregate quality scores into a summary dict.
+
+    Works with both full per-chunk dicts (all fields) and sparse dicts
+    (e.g. from append results that only carry quality_score/confidence/flagged).
+    Optional fields (separation, coherence) are averaged only when present.
+    """
     if not scores:
         return {"total": 0, "flagged": 0, "avg_quality": None}
 
     qs = [s["quality_score"] for s in scores]
-    return {
-        "total":          len(scores),
-        "flagged":        sum(1 for s in scores if s["flagged"]),
-        "pct_flagged":    round(100 * sum(1 for s in scores if s["flagged"]) / len(scores), 1),
-        "avg_quality":    round(float(np.mean(qs)), 4),
-        "avg_confidence": round(float(np.mean([s["confidence"] for s in scores])), 4),
-        "avg_separation": round(float(np.mean([s["separation"] for s in scores])), 4),
-        "avg_coherence":  round(float(np.mean([s["coherence"]  for s in scores])), 4),
-        "min_quality":    round(float(np.min(qs)), 4),
-        "p25_quality":    round(float(np.percentile(qs, 25)), 4),
-        "p50_quality":    round(float(np.percentile(qs, 50)), 4),
-        "p75_quality":    round(float(np.percentile(qs, 75)), 4),
+    summary: dict = {
+        "total":       len(scores),
+        "flagged":     sum(1 for s in scores if s.get("flagged", False)),
+        "pct_flagged": round(100 * sum(1 for s in scores if s.get("flagged", False)) / len(scores), 1),
+        "avg_quality": round(float(np.mean(qs)), 4),
+        "min_quality": round(float(np.min(qs)), 4),
+        "p25_quality": round(float(np.percentile(qs, 25)), 4),
+        "p50_quality": round(float(np.percentile(qs, 50)), 4),
+        "p75_quality": round(float(np.percentile(qs, 75)), 4),
     }
+
+    conf_vals = [s["confidence"]  for s in scores if "confidence"  in s]
+    sep_vals  = [s["separation"]  for s in scores if "separation"  in s]
+    coh_vals  = [s["coherence"]   for s in scores if "coherence"   in s]
+
+    if conf_vals:
+        summary["avg_confidence"] = round(float(np.mean(conf_vals)), 4)
+    if sep_vals:
+        summary["avg_separation"] = round(float(np.mean(sep_vals)),  4)
+    if coh_vals:
+        summary["avg_coherence"]  = round(float(np.mean(coh_vals)),  4)
+
+    return summary

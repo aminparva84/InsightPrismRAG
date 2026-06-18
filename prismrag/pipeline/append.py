@@ -61,6 +61,8 @@ class AppendChunkResult:
     chunk_text:    str
     category_slug: str
     confidence:    float
+    separation:    float
+    coherence:     float
     quality_score: float
     flagged:       bool
     embedding:     list[float] | None = None  # only when include_vectors=True
@@ -161,6 +163,8 @@ def run_append(request: AppendRequest) -> list[AppendChunkResult]:
             chunk_text=texts[i],
             category_slug=final_cats[i],
             confidence=round(final_confs[i], 4),
+            separation=q.separation,
+            coherence=q.coherence,
             quality_score=q.quality_score,
             flagged=q.flagged,
             embedding=personal_embs[i].tolist() if request.include_vectors else None,
@@ -365,6 +369,8 @@ def _rules_only_append(
             chunk_text=texts[i],
             category_slug=cats_out[i],
             confidence=0.0,   # rules has no probabilistic confidence
+            separation=q.separation,
+            coherence=q.coherence,
             quality_score=q.quality_score,
             flagged=q.flagged,
             embedding=personal_embs[i].tolist() if request.include_vectors else None,

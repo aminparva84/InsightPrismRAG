@@ -540,8 +540,14 @@ async def append_chunks(
     check_and_record(user, "ingest_chunk", units=len(results), tenant_id=tenant_id)
 
     quality_scores = [
-        {"chunk_ref": r.chunk_ref, "confidence": r.confidence,
-         "quality_score": r.quality_score, "flagged": r.flagged}
+        {
+            "chunk_ref":    r.chunk_ref,
+            "confidence":   r.confidence,
+            "separation":   r.separation,
+            "coherence":    r.coherence,
+            "quality_score": r.quality_score,
+            "flagged":      r.flagged,
+        }
         for r in results
     ]
     summary = summarise_quality(quality_scores)
@@ -556,6 +562,8 @@ async def append_chunks(
                 "chunk_text":    r.chunk_text,
                 "category_slug": r.category_slug,
                 "confidence":    r.confidence,
+                "separation":    r.separation,
+                "coherence":     r.coherence,
                 "quality_score": r.quality_score,
                 "flagged":       r.flagged,
                 **({"embedding": r.embedding} if req.include_vectors and r.embedding else {}),
