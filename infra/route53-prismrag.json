@@ -1,0 +1,31 @@
+{
+  "Comment": "Point prismrag.insightits.com at Azure Container Apps",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "prismrag.insightits.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "prismrag-api.delightfuldesert-fc8896c5.eastus2.azurecontainerapps.io"
+          }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "asuid.prismrag.insightits.com",
+        "Type": "TXT",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "\"1AB293636C3C912B3921577DB0589F7556CDD63A473CAE07FDD51F4CBEF8B5B5\""
+          }
+        ]
+      }
+    }
+  ]
+}

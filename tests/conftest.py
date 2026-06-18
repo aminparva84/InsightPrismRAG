@@ -4,13 +4,18 @@ PrismRAG QA test suite — shared fixtures.
 Usage:
   pytest tests/ --base-url=https://api.prismrag.io -v
   pytest tests/ --base-url=http://localhost:8001 -v       # local
+  pytest tests/ --base-url=http://localhost:8001 --seeded -v  # use pre-seeded tenant IDs
 
 Env vars (override --base-url):
   PRISMRAG_TEST_URL      — API base URL
-  PRISMRAG_TEST_EMAIL    — test user email (auto-created)
+  PRISMRAG_TEST_EMAIL    — test user email (auto-created / or qa-local@test.prismrag.io when seeded)
   PRISMRAG_TEST_PASSWORD — test user password
+  QA_SEEDED              — set to "1" to use fixed seeded tenant IDs (same as --seeded flag)
 
-The suite creates its own test user at startup and deletes QA data on teardown.
+Pre-seeded mode (--seeded / QA_SEEDED=1):
+  Uses fixed UUIDs planted by `python tests/seed_qa_data.py`. Tenant creation is
+  skipped — tests run against the already-seeded data in the local DB, which is
+  faster and avoids API-rate issues.
 """
 import os
 import time
@@ -26,11 +31,32 @@ from tests.helpers import login as _login
 def pytest_addoption(parser):
     parser.addoption("--base-url", default="http://localhost:8001",
                      help="API base URL (default: http://localhost:8001)")
+    parser.addoption("--seeded", action="store_true", default=False,
+                     help="Use pre-seeded fixed tenant IDs from seed_qa_data.py")
+
+# Fixed UUIDs planted by seed_qa_data.py
+QA_SEEDED_TENANT_IDS = {
+    "healthcare": "10000000-0000-0000-0000-000000000001",
+    "pharmacy":   "10000000-0000-0000-0000-000000000002",
+    "finance":    "10000000-0000-0000-0000-000000000003",
+}
+QA_SEEDED_EMAIL    = "qa-local@test.prismrag.io"
+QA_SEEDED_PASSWORD = "QaTestPass!123"
+
 
 @pytest.fixture(scope="session")
 def base_url(request):
     env = os.environ.get("PRISMRAG_TEST_URL", "")
     return env.rstrip("/") if env else request.config.getoption("--base-url").rstrip("/")
+
+
+@pytest.fixture(scope="session")
+def use_seeded(request):
+    """True when running against pre-seeded local DB (fixed tenant IDs)."""
+    return (
+        request.config.getoption("--seeded")
+        or os.environ.get("QA_SEEDED", "").strip() == "1"
+    )
 
 @pytest.fixture(scope="session")
 def api(base_url):
@@ -47,12 +73,18 @@ def api(base_url):
 # ── Auth fixtures ──────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
-def qa_credentials():
+def qa_credentials(use_seeded):
+    if use_seeded:
+        return {
+            "email":    os.environ.get("PRISMRAG_TEST_EMAIL", QA_SEEDED_EMAIL),
+            "password": os.environ.get("PRISMRAG_TEST_PASSWORD", QA_SEEDED_PASSWORD),
+            "name":     "QA Local User",
+        }
     suffix = uuid.uuid4().hex[:8]
     return {
-        "email": os.environ.get("PRISMRAG_TEST_EMAIL", f"qa-{suffix}@test.prismrag.io"),
+        "email":    os.environ.get("PRISMRAG_TEST_EMAIL", f"qa-{suffix}@test.prismrag.io"),
         "password": os.environ.get("PRISMRAG_TEST_PASSWORD", f"QaPass!{suffix}"),
-        "name": f"QA User {suffix}",
+        "name":     f"QA User {suffix}",
     }
 
 @pytest.fixture(scope="session")
@@ -98,7 +130,9 @@ def stripe_configured():
 
 
 @pytest.fixture(scope="session")
-def healthcare_tenant(authed_api):
+def healthcare_tenant(authed_api, use_seeded):
+    if use_seeded:
+        return QA_SEEDED_TENANT_IDS["healthcare"]
     r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA Healthcare Clinic",
     })
@@ -106,7 +140,9 @@ def healthcare_tenant(authed_api):
     return r.json()["tenant_id"]
 
 @pytest.fixture(scope="session")
-def pharmacy_tenant(authed_api):
+def pharmacy_tenant(authed_api, use_seeded):
+    if use_seeded:
+        return QA_SEEDED_TENANT_IDS["pharmacy"]
     r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA PharmaCo",
     })
@@ -114,7 +150,9 @@ def pharmacy_tenant(authed_api):
     return r.json()["tenant_id"]
 
 @pytest.fixture(scope="session")
-def finance_tenant(authed_api):
+def finance_tenant(authed_api, use_seeded):
+    if use_seeded:
+        return QA_SEEDED_TENANT_IDS["finance"]
     r = authed_api.post(authed_api.url(f"{RAG_API}/tenants"), json={
         "name": "QA FinanceCo",
     })

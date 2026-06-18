@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Processing Agreement — PrismRAG</title>
+  <style>
+    :root { --bg:#0f1117;--surface:#1a1d27;--border:#2a2d3e;--accent:#7c6af7;--text:#e2e8f0;--muted:#718096; }
+    * { box-sizing:border-box;margin:0;padding:0; }
+    body { font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7; }
+    header { background:var(--surface);border-bottom:1px solid var(--border);padding:0 40px;display:flex;align-items:center;height:56px;gap:24px; }
+    header .logo { font-size:1rem;font-weight:700;color:var(--accent);margin-right:auto; }
+    header a { color:var(--muted);text-decoration:none;font-size:.875rem; }
+    header a:hover { color:var(--text); }
+    .container { max-width:860px;margin:0 auto;padding:60px 24px 80px; }
+    h1 { font-size:2rem;font-weight:700;margin-bottom:8px; }
+    .meta { color:var(--muted);font-size:.875rem;margin-bottom:48px; }
+    h2 { font-size:1.1rem;font-weight:700;margin:40px 0 12px;color:var(--accent); }
+    h3 { font-size:.95rem;font-weight:600;margin:24px 0 8px; }
+    p,li { font-size:.9375rem;color:#cbd5e0;margin-bottom:10px; }
+    ul,ol { padding-left:24px;margin-bottom:12px; }
+    table { width:100%;border-collapse:collapse;margin:20px 0;font-size:.875rem; }
+    th,td { padding:10px 14px;border:1px solid var(--border);text-align:left;vertical-align:top; }
+    th { background:var(--surface);color:var(--muted);font-weight:600; }
+    .highlight { background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin:20px 0;font-size:.875rem; }
+    .sign-box { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:28px;margin-top:48px; }
+    .sign-box h3 { margin-top:0;font-size:1rem; }
+    .sig-row { display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px; }
+    .sig-col p { font-size:.8rem;color:var(--muted);margin:0; }
+    .sig-line { border-top:1px solid var(--border);margin-top:32px;padding-top:8px; }
+    .btn { display:inline-block;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 24px;cursor:pointer;font-size:.9rem;font-weight:600;text-decoration:none;margin-top:20px; }
+    @media print { header,h1,h2{color:#000} body{background:#fff;color:#000} .highlight,.sign-box{border:1px solid #ccc} table th{background:#f5f5f5} }
+  </style>
+</head>
+<body>
+<header>
+  <span class="logo">⬡ PrismRAG</span>
+  <a href="/">Home</a>
+  <a href="/terms.html">Terms</a>
+  <a href="/privacy.html">Privacy</a>
+  <a href="#" onclick="window.print()" style="color:var(--accent)">Print / Download PDF</a>
+</header>
+
+<div class="container">
+  <h1>Data Processing Agreement</h1>
+  <div class="meta">
+    Version 1.0 · Effective date: 1 July 2026 · Governed by GDPR Article 28 &amp; UK GDPR<br/>
+    Between <strong>Insight IT Solutions Ltd</strong> ("Processor") and the Customer ("Controller")
+  </div>
+
+  <div class="highlight">
+    This Data Processing Agreement ("DPA") forms part of, and is incorporated into, the PrismRAG Terms of Service or any Order Form entered into between the parties. In the event of conflict, this DPA takes precedence with respect to data protection matters.
+  </div>
+
+  <!-- 1 -->
+  <h2>1. Definitions</h2>
+  <p>Terms used but not defined here have the meanings given in the applicable data-protection legislation (GDPR, UK GDPR, Swiss FADP).</p>
+  <ul>
+    <li><strong>"Personal Data"</strong> — any information relating to an identified or identifiable natural person processed under this DPA.</li>
+    <li><strong>"Controller"</strong> — the Customer, who determines the purposes and means of processing.</li>
+    <li><strong>"Processor"</strong> — Insight IT Solutions Ltd, trading as PrismRAG, processing on behalf of the Controller.</li>
+    <li><strong>"Sub-processor"</strong> — any third party engaged by the Processor to process Personal Data.</li>
+    <li><strong>"Services"</strong> — the PrismRAG semantic re-mapping engine, Deliberation engine, and related APIs provided by the Processor.</li>
+  </ul>
+
+  <!-- 2 -->
+  <h2>2. Scope and Nature of Processing</h2>
+  <table>
+    <tr><th>Subject matter</th><td>Provision of the PrismRAG Services as described in the applicable Order Form</td></tr>
+    <tr><th>Duration</th><td>For the term of the Agreement, plus any legally mandated retention period</td></tr>
+    <tr><th>Nature</th><td>Storage, retrieval, embedding, indexing, and semantic search of Controller-supplied documents and query text</td></tr>
+    <tr><th>Purpose</th><td>As instructed by Controller; the Processor will not process Personal Data for its own commercial purposes</td></tr>
+    <tr><th>Categories of data</th><td>Text data, metadata, and embeddings supplied by the Controller (may include names, email addresses, and business information depending on Controller's use case)</td></tr>
+    <tr><th>Categories of data subjects</th><td>Employees, customers, or end-users of the Controller as determined by the Controller's content</td></tr>
+  </table>
+
+  <!-- 3 -->
+  <h2>3. Controller Instructions</h2>
+  <p>The Processor shall process Personal Data only on the documented instructions of the Controller, unless required to do otherwise by applicable law. The Services themselves, as configured by the Controller, constitute the Controller's documented instructions. The Processor shall promptly notify the Controller if it believes an instruction would infringe applicable data-protection law.</p>
+
+  <!-- 4 -->
+  <h2>4. Processor Obligations</h2>
+  <p>The Processor agrees to:</p>
+  <ol>
+    <li>Process Personal Data only as necessary to provide the Services or comply with applicable law.</li>
+    <li>Ensure that persons authorised to process Personal Data are bound by appropriate confidentiality obligations.</li>
+    <li>Implement and maintain appropriate technical and organisational security measures as described in Section 7.</li>
+    <li>Respect the conditions for engaging Sub-processors set out in Section 5.</li>
+    <li>Assist the Controller in responding to requests from data subjects exercising their rights (Articles 15–22 GDPR) within the timescales required by law.</li>
+    <li>Assist the Controller in complying with its obligations under Articles 32–36 GDPR (security, breach notification, DPIA, prior consultation), taking into account the nature of processing and information available.</li>
+    <li>At the choice of the Controller, delete or return all Personal Data to the Controller on termination of the Services, and delete existing copies unless storage is required by applicable law.</li>
+    <li>Make available to the Controller all information necessary to demonstrate compliance with this DPA and allow for and contribute to audits conducted by the Controller or a mandated auditor (on reasonable notice, no more than once per year, at Controller's cost).</li>
+  </ol>
+
+  <!-- 5 -->
+  <h2>5. Sub-processors</h2>
+  <p>The Controller grants general authorisation to use the following Sub-processors:</p>
+  <table>
+    <tr><th>Sub-processor</th><th>Purpose</th><th>Location</th></tr>
+    <tr><td>Microsoft Azure</td><td>Infrastructure hosting (Container Apps, Storage, Service Bus)</td><td>EU (West Europe) / US (East US 2)</td></tr>
+    <tr><td>Google LLC (Gemini API)</td><td>Text embedding and generation</td><td>USA</td></tr>
+    <tr><td>Neon Inc.</td><td>PostgreSQL database hosting</td><td>USA (configurable region)</td></tr>
+    <tr><td>Stripe Inc.</td><td>Payment processing (billing metadata only)</td><td>USA / EU</td></tr>
+    <tr><td>Microsoft Azure Communication Services</td><td>Transactional email delivery</td><td>USA / EU</td></tr>
+  </table>
+  <p>The Processor shall notify the Controller of any intended addition or replacement of Sub-processors at least 14 days in advance via email. The Controller may object in writing within 10 days; if no agreement is reached, either party may terminate the relevant Services on 30 days' notice.</p>
+  <p>The Processor shall impose data-protection obligations equivalent to those in this DPA on all Sub-processors and shall remain liable for their acts and omissions.</p>
+
+  <!-- 6 -->
+  <h2>6. International Transfers</h2>
+  <p>Where Personal Data is transferred outside the European Economic Area or UK, the Processor will ensure that one of the following safeguards applies:</p>
+  <ul>
+    <li>An adequacy decision of the European Commission or UK Secretary of State;</li>
+    <li>Standard Contractual Clauses (SCCs) approved by the European Commission or UK ICO; or</li>
+    <li>Another valid transfer mechanism under applicable law.</li>
+  </ul>
+  <p>On request, the Processor shall make available the relevant SCCs or other transfer documentation. The Processor incorporates the EU SCCs (Module 2 — Controller to Processor) by reference into this DPA where applicable.</p>
+
+  <!-- 7 -->
+  <h2>7. Security Measures</h2>
+  <p>The Processor maintains the following technical and organisational measures (TOMs):</p>
+  <ul>
+    <li><strong>Encryption at rest:</strong> AES-256 encryption for all stored data via Azure and Neon.</li>
+    <li><strong>Encryption in transit:</strong> TLS 1.2+ enforced on all endpoints.</li>
+    <li><strong>Access control:</strong> Role-based access control (RBAC); MFA available and enforceable at tenant level.</li>
+    <li><strong>Audit logging:</strong> All data-access and administrative actions logged with timestamps and user identity.</li>
+    <li><strong>Penetration testing:</strong> Annual third-party penetration test; results shared with Controllers on request.</li>
+    <li><strong>Vulnerability management:</strong> Container images scanned on build; critical CVEs patched within 72 hours.</li>
+    <li><strong>Incident response:</strong> Documented incident response plan; sub-72-hour notification to affected Controllers for high-risk breaches.</li>
+    <li><strong>Backups:</strong> Daily encrypted backups with 7-day retention; tested quarterly.</li>
+    <li><strong>Data isolation:</strong> Logical tenant isolation enforced via row-level security on all tables.</li>
+    <li><strong>Customer-managed encryption keys (CMEK):</strong> Available on Enterprise tier via Azure Key Vault integration.</li>
+  </ul>
+
+  <!-- 8 -->
+  <h2>8. Personal Data Breach Notification</h2>
+  <p>In the event of a Personal Data Breach (as defined under applicable data-protection legislation), the Processor shall:</p>
+  <ol>
+    <li>Notify the Controller without undue delay, and in any event within <strong>48 hours</strong> of becoming aware of a breach that is likely to result in a risk to natural persons.</li>
+    <li>Provide the Controller with sufficient information to enable it to comply with its own notification obligations to supervisory authorities and data subjects, including: the nature of the breach; categories and approximate number of data subjects and records concerned; likely consequences; and measures taken or proposed.</li>
+    <li>Cooperate with and assist the Controller in all aspects of breach notification and remediation.</li>
+  </ol>
+
+  <!-- 9 -->
+  <h2>9. Data Subject Rights</h2>
+  <p>The Controller is responsible for responding to data subjects' requests. The Processor shall assist the Controller by:</p>
+  <ul>
+    <li>Promptly forwarding any data-subject request received directly by the Processor;</li>
+    <li>Providing technical tools (e.g. tenant data export, deletion APIs) to help the Controller fulfil requests; and</li>
+    <li>Completing Controller-requested deletions or exports within 30 days.</li>
+  </ul>
+
+  <!-- 10 -->
+  <h2>10. Deletion and Return of Data</h2>
+  <p>On expiry or termination of the Services, the Processor shall, at the Controller's written election:</p>
+  <ul>
+    <li><strong>Delete</strong> all Personal Data processed on behalf of the Controller, including all copies, within 30 days of termination; or</li>
+    <li><strong>Return</strong> all Personal Data in a machine-readable format (JSONL or CSV) within 30 days.</li>
+  </ul>
+  <p>The Processor may retain Personal Data for a longer period only to the extent required by applicable law, and shall promptly inform the Controller of any such legal obligation.</p>
+
+  <!-- 11 -->
+  <h2>11. Confidentiality</h2>
+  <p>The Processor shall keep Personal Data strictly confidential and shall not disclose it to any third party (other than authorised Sub-processors or as required by law) without the prior written consent of the Controller.</p>
+
+  <!-- 12 -->
+  <h2>12. Liability</h2>
+  <p>Each party's liability under this DPA shall be subject to the limitations set out in the applicable Terms of Service, except to the extent that applicable data-protection law imposes non-excludable liability. Nothing in this DPA limits liability for fraud, wilful misconduct, or gross negligence.</p>
+
+  <!-- 13 -->
+  <h2>13. Governing Law and Jurisdiction</h2>
+  <p>This DPA shall be governed by and construed in accordance with the laws of England and Wales. The parties submit to the exclusive jurisdiction of the courts of England and Wales, without prejudice to the right of any supervisory authority to receive and investigate complaints.</p>
+
+  <!-- 14 -->
+  <h2>14. Order of Precedence</h2>
+  <p>In the event of conflict between this DPA and any other agreement between the parties, this DPA shall take precedence in respect of data-protection obligations. For all other matters, the Terms of Service shall take precedence.</p>
+
+  <!-- Signatures -->
+  <div class="sign-box">
+    <h3>Execution</h3>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:8px">
+      This DPA is entered into by the parties as of the Effective Date stated in the Order Form or, if no Order Form exists, the date the Customer first accesses the Services.
+    </p>
+    <div class="sig-row">
+      <div>
+        <p><strong>Data Processor</strong></p>
+        <p>Insight IT Solutions Ltd<br/>trading as PrismRAG</p>
+        <div class="sig-line">
+          <p>Authorised signatory</p>
+          <p style="margin-top:4px">Name: ______________________</p>
+          <p>Title: ______________________</p>
+          <p>Date: ______________________</p>
+        </div>
+      </div>
+      <div>
+        <p><strong>Data Controller</strong></p>
+        <p>Customer (as named in Order Form)</p>
+        <div class="sig-line">
+          <p>Authorised signatory</p>
+          <p style="margin-top:4px">Name: ______________________</p>
+          <p>Title: ______________________</p>
+          <p>Date: ______________________</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:32px;font-size:.8rem;color:var(--muted)">
+    To execute this DPA electronically, email <a href="mailto:legal@insightits.info" style="color:var(--accent)">legal@insightits.info</a> with your company name and authorised signatory details. We will countersign and return a PDF within 2 business days.
+  </p>
+  <p style="font-size:.8rem;color:var(--muted)">
+    This template DPA was prepared for informational purposes and does not constitute legal advice. Customers should have it reviewed by qualified legal counsel before execution.
+  </p>
+</div>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrismRAG Admin</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3e;
+      --accent: #7c6af7;
+      --accent-dim: #4e3fbf;
+      --text: #e2e8f0;
+      --muted: #718096;
+      --green: #48bb78;
+      --yellow: #ecc94b;
+      --red: #fc8181;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Layout */
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    nav { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; }
+    nav .logo { padding: 0 20px 24px; font-size: 1.1rem; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+    nav a { display: block; padding: 10px 20px; color: var(--muted); text-decoration: none; font-size: .875rem; border-left: 3px solid transparent; }
+    nav a:hover, nav a.active { color: var(--text); border-left-color: var(--accent); background: rgba(124,106,247,.08); }
+    main { padding: 32px; overflow: auto; }
+
+    /* Header */
+    .page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+    .page-sub   { color: var(--muted); font-size: .875rem; margin-bottom: 28px; }
+
+    /* Cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .card .label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+    .card .value { font-size: 2rem; font-weight: 700; }
+    .card .sub   { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+    /* Table */
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 32px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .section-title { font-weight: 600; font-size: .9375rem; }
+    input.search { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; color: var(--text); font-size: .85rem; width: 240px; }
+    input.search::placeholder { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { padding: 10px 16px; text-align: left; color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(124,106,247,.04); }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .badge-starter      { background: rgba(113,128,150,.2); color: var(--muted); }
+    .badge-professional { background: rgba(124,106,247,.2); color: var(--accent); }
+    .badge-enterprise   { background: rgba(72,187,120,.2); color: var(--green); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+    .tab { padding: 8px 18px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-size: .875rem; color: var(--muted); background: none; }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Loading / empty */
+    .loading { padding: 40px; text-align: center; color: var(--muted); }
+    .empty   { padding: 40px; text-align: center; color: var(--muted); font-size: .875rem; }
+
+    /* Login wall */
+    #login-wall { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 40px; width: 360px; }
+    .login-box h1 { font-size: 1.25rem; margin-bottom: 4px; }
+    .login-box p  { color: var(--muted); font-size: .85rem; margin-bottom: 24px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 6px; }
+    .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-size: .9rem; }
+    .btn { display: inline-block; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: .9rem; width: 100%; font-weight: 600; }
+    .btn:hover { background: var(--accent-dim); }
+    .error-msg { color: var(--red); font-size: .8rem; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- Login wall (shown when no JWT) -->
+<div id="login-wall" style="display:none">
+  <div class="login-box">
+    <h1>PrismRAG Admin</h1>
+    <p>Superadmin access only.</p>
+    <div class="field">
+      <label>Email</label>
+      <input id="l-email" type="email" placeholder="admin@example.com" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="l-pass" type="password" placeholder="••••••••" />
+    </div>
+    <button class="btn" onclick="doLogin()">Sign in</button>
+    <div id="l-err" class="error-msg"></div>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="layout" id="app" style="display:none">
+  <nav>
+    <div class="logo">⬡ PrismRAG</div>
+    <a href="#" onclick="showTab('metrics')" class="active" id="nav-metrics">Platform Metrics</a>
+    <a href="#" onclick="showTab('tenants')" id="nav-tenants">Tenants</a>
+    <a href="#" onclick="showTab('users')" id="nav-users">Users</a>
+    <a href="#" onclick="showTab('audit')" id="nav-audit">Audit Log</a>
+    <a href="#" onclick="logout()" style="position:fixed;bottom:24px;left:0;width:220px">Sign out</a>
+  </nav>
+
+  <main>
+    <!-- METRICS TAB -->
+    <div id="tab-metrics">
+      <div class="page-title">Platform Overview</div>
+      <div class="page-sub">Last 7 days platform-wide metrics</div>
+      <div class="cards" id="metric-cards">
+        <div class="card"><div class="label">Tenants</div><div class="value" id="m-tenants">—</div></div>
+        <div class="card"><div class="label">Total Users</div><div class="value" id="m-users">—</div></div>
+        <div class="card"><div class="label">New Users (7d)</div><div class="value" id="m-new-users">—</div></div>
+        <div class="card"><div class="label">Searches (7d)</div><div class="value" id="m-searches">—</div></div>
+        <div class="card"><div class="label">Deliberations (7d)</div><div class="value" id="m-deliberations">—</div></div>
+        <div class="card"><div class="label">Median Score (P50)</div><div class="value" id="m-p50">—</div></div>
+      </div>
+    </div>
+
+    <!-- TENANTS TAB -->
+    <div id="tab-tenants" style="display:none">
+      <div class="page-title">Tenants</div>
+      <div class="page-sub">All organisations on PrismRAG</div>
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">All Tenants</span>
+          <input class="search" placeholder="Search by name…" oninput="filterTenants(this.value)" />
+        </div>
+        <div id="tenants-body"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="tab-users" style="display:none">
+      <div class="page-title">Users</div>
+      <div class="page-sub">All registered users</div>
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">All Users</span>
+          <input class="search" placeholder="Search by email…" oninput="filterUsers(this.value)" />
+        </div>
+        <div id="users-body"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- AUDIT TAB -->
+    <div id="tab-audit" style="display:none">
+      <div class="page-title">Audit Log</div>
+      <div class="page-sub">Last 7 days — all tenant actions</div>
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">Events</span>
+          <input class="search" placeholder="Filter by email or action…" oninput="filterAudit(this.value)" />
+        </div>
+        <div id="audit-body"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const API = '';  // same origin
+  let TOKEN = localStorage.getItem('admin_token') || '';
+  let _tenants = [], _users = [], _audit = [];
+
+  async function api(path, opts = {}) {
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    });
+    if (res.status === 401 || res.status === 403) { logout(); return null; }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function doLogin() {
+    document.getElementById('l-err').textContent = '';
+    const email = document.getElementById('l-email').value;
+    const pass  = document.getElementById('l-pass').value;
+    try {
+      const r = await fetch(API + '/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass }),
+      });
+      if (!r.ok) throw new Error('Invalid credentials');
+      const data = await r.json();
+      TOKEN = data.access_token;
+      localStorage.setItem('admin_token', TOKEN);
+      init();
+    } catch(e) {
+      document.getElementById('l-err').textContent = e.message;
+    }
+  }
+
+  function logout() {
+    TOKEN = '';
+    localStorage.removeItem('admin_token');
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-wall').style.display = 'flex';
+  }
+
+  function showTab(name) {
+    ['metrics','tenants','users','audit'].forEach(t => {
+      document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
+      document.getElementById('nav-' + t).classList.toggle('active', t === name);
+    });
+    if (name === 'tenants' && !_tenants.length) loadTenants();
+    if (name === 'users'   && !_users.length)   loadUsers();
+    if (name === 'audit'   && !_audit.length)    loadAudit();
+  }
+
+  async function loadMetrics() {
+    const d = await api('/api/v1/admin/metrics/platform?days=7');
+    if (!d) return;
+    document.getElementById('m-tenants').textContent      = d.tenants_total;
+    document.getElementById('m-users').textContent        = d.users_total;
+    document.getElementById('m-new-users').textContent    = d.new_users;
+    document.getElementById('m-searches').textContent     = (d.usage.search || 0).toLocaleString();
+    document.getElementById('m-deliberations').textContent = (d.usage.deliberation || 0).toLocaleString();
+    document.getElementById('m-p50').textContent          = d.quality?.p50_score != null ? d.quality.p50_score.toFixed(3) : 'N/A';
+  }
+
+  async function loadTenants(search = '') {
+    const url = '/api/v1/admin/tenants?limit=100' + (search ? '&search=' + encodeURIComponent(search) : '');
+    const d = await api(url);
+    if (!d) return;
+    _tenants = d.tenants;
+    renderTenants(_tenants);
+  }
+
+  function renderTenants(rows) {
+    const el = document.getElementById('tenants-body');
+    if (!rows.length) { el.innerHTML = '<div class="empty">No tenants found.</div>'; return; }
+    el.innerHTML = `<table>
+      <thead><tr><th>Name</th><th>Owner</th><th>Plan</th><th>Region</th><th>Users</th><th>Events</th><th>Created</th><th></th></tr></thead>
+      <tbody>${rows.map(t => `
+        <tr>
+          <td><strong>${esc(t.name)}</strong></td>
+          <td>${esc(t.owner_email || '—')}</td>
+          <td><span class="badge badge-${t.tier}">${t.tier}</span></td>
+          <td>${esc(t.data_region || '—')}</td>
+          <td>${t.user_count}</td>
+          <td>${t.total_events.toLocaleString()}</td>
+          <td>${t.created_at ? t.created_at.slice(0,10) : '—'}</td>
+          <td>
+            <select onchange="changePlan('${t.id}', this.value)" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem">
+              <option value="">Set plan…</option>
+              <option value="starter">Starter</option>
+              <option value="professional">Professional</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  async function changePlan(tenantId, tier) {
+    if (!tier) return;
+    if (!confirm(`Set tenant to ${tier}?`)) return;
+    await api(`/api/v1/admin/tenants/${tenantId}/plan`, { method: 'PATCH', body: JSON.stringify({ tier }) });
+    loadTenants();
+  }
+
+  function filterTenants(q) {
+    if (!q) { renderTenants(_tenants); return; }
+    const lq = q.toLowerCase();
+    renderTenants(_tenants.filter(t => (t.name + t.owner_email).toLowerCase().includes(lq)));
+  }
+
+  async function loadUsers(search = '') {
+    const url = '/api/v1/admin/users?limit=100' + (search ? '&search=' + encodeURIComponent(search) : '');
+    const d = await api(url);
+    if (!d) return;
+    _users = d.users;
+    renderUsers(_users);
+  }
+
+  function renderUsers(rows) {
+    const el = document.getElementById('users-body');
+    if (!rows.length) { el.innerHTML = '<div class="empty">No users found.</div>'; return; }
+    el.innerHTML = `<table>
+      <thead><tr><th>Email</th><th>Role</th><th>Plan</th><th>Created</th><th>Last Login</th><th></th></tr></thead>
+      <tbody>${rows.map(u => `
+        <tr>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.role || 'user')}</td>
+          <td>${u.plan ? `<span class="badge badge-${u.plan}">${u.plan}</span>` : '—'}</td>
+          <td>${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
+          <td>${u.last_login_at ? u.last_login_at.slice(0,10) : 'Never'}</td>
+          <td>
+            <select onchange="changeRole('${u.id}', this.value)" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:.75rem">
+              <option value="">Set role…</option>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
+            </select>
+          </td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  async function changeRole(userId, role) {
+    if (!role) return;
+    if (!confirm(`Set user role to ${role}?`)) return;
+    await api(`/api/v1/admin/users/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+    loadUsers();
+  }
+
+  function filterUsers(q) {
+    if (!q) { renderUsers(_users); return; }
+    const lq = q.toLowerCase();
+    renderUsers(_users.filter(u => u.email.toLowerCase().includes(lq)));
+  }
+
+  async function loadAudit() {
+    const d = await api('/api/v1/admin/audit?days=7&limit=200');
+    if (!d) return;
+    _audit = d;
+    renderAudit(_audit);
+  }
+
+  function renderAudit(rows) {
+    const el = document.getElementById('audit-body');
+    if (!rows.length) { el.innerHTML = '<div class="empty">No audit events.</div>'; return; }
+    el.innerHTML = `<table>
+      <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>IP</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr>
+          <td style="white-space:nowrap;color:var(--muted)">${r.created_at ? r.created_at.replace('T',' ').slice(0,19) : '—'}</td>
+          <td>${esc(r.user_email || '—')}</td>
+          <td>${esc(r.action || '—')}</td>
+          <td>${esc(r.resource_type || '')} ${esc(r.resource_id || '')}</td>
+          <td style="color:var(--muted)">${esc(r.ip || '—')}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  function filterAudit(q) {
+    if (!q) { renderAudit(_audit); return; }
+    const lq = q.toLowerCase();
+    renderAudit(_audit.filter(r => (r.user_email + r.action).toLowerCase().includes(lq)));
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function init() {
+    document.getElementById('login-wall').style.display = 'none';
+    document.getElementById('app').style.display = 'grid';
+    await loadMetrics();
+  }
+
+  // Boot
+  if (TOKEN) { init(); } else { document.getElementById('login-wall').style.display = 'flex'; }
+</script>
+</body>
+</html>

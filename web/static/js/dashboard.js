@@ -76,6 +76,7 @@ document.querySelectorAll('[data-goto]').forEach(a => {
 
   // Load usage
   loadUsage(me.plan);
+  loadPeriodUsage();
   updateQuickstart();
 
   if (me.plan === 'enterprise') {
@@ -108,6 +109,34 @@ async function loadUsage(plan) {
   document.getElementById('quota-fill').style.width = pct + '%';
   document.getElementById('ov-tenants').textContent  = tenants;
   document.getElementById('ov-searches').textContent = searches.toLocaleString();
+}
+
+/* ── Period usage (searches + deliberations) ───────────────────────────────── */
+async function loadPeriodUsage() {
+  const res = await apiFetch('/api/v1/dashboard/usage');
+  if (!res || !res.ok) return;
+  const d = await res.json();
+
+  // Update overview cards if they exist
+  const sPctEl = document.getElementById('ov-searches');
+  if (sPctEl) sPctEl.textContent = (d.usage.searches || 0).toLocaleString();
+
+  const delEl = document.getElementById('ov-deliberations');
+  if (delEl) delEl.textContent = (d.usage.deliberations || 0).toLocaleString();
+
+  // Overage banner
+  if (d.overage?.deliberations > 0) {
+    let banner = document.getElementById('overage-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'overage-banner';
+      banner.style.cssText = 'background:rgba(252,129,129,.1);border:1px solid rgba(252,129,129,.3);border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:.875rem;color:#fc8181;';
+      const main = document.querySelector('main') || document.body;
+      main.prepend(banner);
+    }
+    banner.innerHTML = `⚠️ You have <strong>${d.overage.deliberations}</strong> deliberation overages this period, adding an estimated <strong>$${d.overage.estimated_cost_usd.toFixed(2)}</strong> to your next invoice.`;
+    banner.style.display = '';
+  }
 }
 
 function planChunkLimit(plan) {

@@ -955,6 +955,7 @@
           <li><a href="/terms.html">Terms</a></li>
           <li><a href="/status.html">Status</a></li>
           <li><a href="/sla.html">SLA</a></li>
+          <li><a href="/dpa.html">DPA</a></li>
         </ul>
       </div>
     </div>
@@ -966,5 +967,18 @@
 </footer>
 
 <script src="/static/js/landing.js"></script>
+
+<!-- Support widget (Crisp — free tier, replace CRISP_WEBSITE_ID with real ID) -->
+<script>
+  window.$crisp=[];
+  window.CRISP_WEBSITE_ID="REPLACE_WITH_CRISP_WEBSITE_ID";
+  (function(){
+    // Only load if ID has been configured (prevents noise in dev)
+    if (window.CRISP_WEBSITE_ID === "REPLACE_WITH_CRISP_WEBSITE_ID") return;
+    var d=document;var s=d.createElement("script");
+    s.src="https://client.crisp.chat/l.js";
+    s.async=1;d.getElementsByTagName("head")[0].appendChild(s);
+  })();
+</script>
 </body>
 </html>

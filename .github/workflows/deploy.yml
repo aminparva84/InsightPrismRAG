@@ -1,4 +1,4 @@
-name: Build & Deploy to Azure
+name: CI — Build to ACR (deploy only with [publish])
 
 # ── CI/CD behavior (read before pushing to main) ─────────────────────────────
 # Every push to main ALWAYS runs:  Lint → Build & Push (Docker images to ACR)
@@ -51,7 +51,7 @@ jobs:
           GEMINI_API_KEY: ci-placeholder
 
   build:
-    name: Build & Push
+    name: Build & Push to ACR
     runs-on: ubuntu-latest
     needs: lint
     outputs:
@@ -105,18 +105,32 @@ jobs:
           cache-to: type=gha,mode=max,scope=worker
 
       - name: Deploy gate notice
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "::notice::Manual run — Deploy to Azure will run after this build."
-          elif echo "$MSG" | grep -q '\[publish\]'; then
-            echo "::notice::Commit contains [publish] — Deploy to Azure will run after this build."
+            echo "::notice title=Deploy scheduled::Manual workflow run — Deploy to Azure will run after build."
+          elif printf '%s' "$COMMIT_MSG" | grep -qF '[publish]'; then
+            echo "::notice title=Deploy scheduled::Commit contains [publish] — Deploy to Azure will run after build."
           else
-            echo "::notice::No [publish] in commit message — Lint + Build only. Images pushed to ACR; Container Apps unchanged."
-            echo "         To deploy: git commit -m \"your message [publish]\" or use workflow_dispatch."
+            echo "::notice title=Deploy skipped::No [publish] in commit — only Lint + Build run. Container Apps are NOT updated."
+            echo "To deploy to Azure: include [publish] in the commit message, or run this workflow manually from Actions."
           fi
 
   # Skipped unless commit message contains [publish] or workflow_dispatch (see header).
+  deploy-skipped:
+    name: Deploy skipped (no [publish])
+    runs-on: ubuntu-latest
+    needs: build
+    if: >
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[publish]')
+    steps:
+      - run: |
+          echo "This push did not include [publish] in the commit message."
+          echo "Docker images were built and pushed to ACR only."
+          echo "prismrag.insightits.com was NOT redeployed."
+
   deploy:
     name: Deploy to Azure
     runs-on: ubuntu-latest

@@ -18,6 +18,8 @@ from prismrag.api.deliberation_routes import deliberation_router
 from prismrag.api.tenant_routes import tenant_router
 from prismrag.api.scim_routes import router as scim_router
 from prismrag.api.status_routes import status_router
+from prismrag.api.admin_routes import router as admin_router
+from prismrag.api.dashboard_routes import router as dashboard_router
 from prismrag.middleware.logging import AuditMiddleware
 from prismrag.middleware.versioning import LegacyApiMiddleware
 from prismrag.middleware.request_id import RequestIdMiddleware
@@ -74,6 +76,8 @@ app.include_router(deliberation_router)
 app.include_router(tenant_router)
 app.include_router(scim_router)
 app.include_router(status_router)
+app.include_router(admin_router)
+app.include_router(dashboard_router)
 
 app.get("/metrics", include_in_schema=False)(metrics_endpoint)
 
