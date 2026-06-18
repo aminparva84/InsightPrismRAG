@@ -151,7 +151,7 @@ class TestProductionSearch:
         ("healthcare", "What medications are used for diabetes management?", "medication"),
         ("healthcare", "What lab tests indicate heart attack?", "lab_results"),
         ("pharmacy", "What CYP450 interactions affect warfarin?", "drug_interactions"),
-        ("pharmacy", "How should insulin be stored?", "storage"),
+        ("pharmacy", "How should medications be refrigerated and stored in cold chain?", "storage"),
         ("finance", "What is the DCF valuation and WACC?", "valuation"),
         ("finance", "What are the credit risk and VaR metrics?", "risk"),
     ])

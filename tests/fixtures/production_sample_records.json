@@ -70,6 +70,18 @@
         "text": "Insulin vials must be refrigerated at 2-8°C before first use. Do not freeze."
       },
       {
+        "word": "cold_chain",
+        "text": "Cold chain storage is critical for biologics. Vaccines and insulin require continuous refrigeration during transport."
+      },
+      {
+        "word": "light_sensitive",
+        "text": "Nitroglycerin tablets are light-sensitive and must be stored in opaque amber bottles away from direct sunlight."
+      },
+      {
+        "word": "room_temperature",
+        "text": "Opened insulin pens can be stored at room temperature (below 30°C) for up to 28 days without refrigeration."
+      },
+      {
         "word": "serotonin_syndrome",
         "text": "Combining SSRI with MAOI risks serotonin syndrome: agitation, hyperthermia, clonus, and autonomic instability."
       }
