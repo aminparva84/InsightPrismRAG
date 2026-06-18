@@ -212,6 +212,9 @@ jobs:
             --name prismrag-api \
             --resource-group "${{ env.RESOURCE_GROUP }}" \
             --image "${{ env.ACR_LOGIN_SERVER }}/prismrag-api:${TAG}" \
+            --registry-server "${{ env.ACR_LOGIN_SERVER }}" \
+            --registry-username "${{ secrets.ACR_USERNAME }}" \
+            --registry-password "${{ secrets.ACR_PASSWORD }}" \
             --output none
 
       # ── Step 4: Deploy Worker container app
@@ -270,6 +273,9 @@ jobs:
             --name prismrag-worker \
             --resource-group "${{ env.RESOURCE_GROUP }}" \
             --image "${{ env.ACR_LOGIN_SERVER }}/prismrag-worker:${TAG}" \
+            --registry-server "${{ env.ACR_LOGIN_SERVER }}" \
+            --registry-username "${{ secrets.ACR_USERNAME }}" \
+            --registry-password "${{ secrets.ACR_PASSWORD }}" \
             --output none
 
       # ── Step 5: Health check
