@@ -255,14 +255,25 @@ async function loadJobs() {
   const list = document.getElementById('jobs-list');
   list.innerHTML = '<div class="loading-state">Loading…</div>';
 
-  const res = await apiFetch('/api/prismrag/jobs?limit=20');
-  if (!res || !res.ok) {
-    list.innerHTML = '<div class="empty-state"><strong>No jobs yet</strong><p>Submit your first ingest job above.</p></div>';
+  // Try to load any tracked job IDs from sessionStorage (set after submit)
+  const trackedRaw = sessionStorage.getItem('prismrag_jobs') || '[]';
+  let tracked = [];
+  try { tracked = JSON.parse(trackedRaw); } catch (_) {}
+
+  if (!tracked.length) {
+    list.innerHTML = '<div class="empty-state"><strong>No jobs this session</strong><p>Submit a job above — it will appear here. Job history resets when you sign out.</p></div>';
     return;
   }
 
-  const jobs = await res.json();
-  if (!jobs.length) {
+  // Fetch status for each tracked job
+  const rows = await Promise.all(tracked.slice(-20).reverse().map(async id => {
+    const r = await apiFetch(`/api/v1/prismrag/jobs/${id}`);
+    if (!r || !r.ok) return null;
+    return r.json();
+  }));
+
+  const valid = rows.filter(Boolean);
+  if (!valid.length) {
     list.innerHTML = '<div class="empty-state"><strong>No jobs yet</strong><p>Submit your first ingest job above.</p></div>';
     return;
   }
@@ -270,7 +281,7 @@ async function loadJobs() {
   list.innerHTML = `
     <table>
       <thead><tr><th>Job ID</th><th>Tenant</th><th>Status</th><th>Progress</th><th>Strategy</th><th>Created</th></tr></thead>
-      <tbody>${jobs.map(jobRow).join('')}</tbody>
+      <tbody>${valid.map(jobRow).join('')}</tbody>
     </table>`;
 }
 
@@ -350,6 +361,12 @@ document.getElementById('job-form').addEventListener('submit', async e => {
 
   if (res && res.ok) {
     const job = await res.json();
+    // Track job ID in sessionStorage so Recent Jobs can poll it
+    try {
+      const ids = JSON.parse(sessionStorage.getItem('prismrag_jobs') || '[]');
+      ids.push(job.job_id);
+      sessionStorage.setItem('prismrag_jobs', JSON.stringify(ids));
+    } catch (_) {}
     alert(`Job submitted! ID: ${job.job_id}\nCheck 'Recent jobs' for progress.`);
     selectedFile = null;
     document.getElementById('file-drop-label').innerHTML = `Drag & drop or <label for="file-input" class="file-link">browse file</label>`;
