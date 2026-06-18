@@ -8,14 +8,33 @@ from typing import Sequence
 import numpy as np
 import requests
 
-from prismrag.config import GEMINI_API_KEY, GEMINI_EMBED_MODEL, EMBED_BATCH_SIZE
+from prismrag.config import (
+    GEMINI_API_KEY,
+    GEMINI_EMBED_MODEL,
+    EMBED_BATCH_SIZE,
+    EMBED_DIM_SEMANTIC,
+)
 
 logger = logging.getLogger(__name__)
 
-_EMBED_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_EMBED_MODEL}:batchEmbedContents"
-)
+
+def _embed_url() -> str:
+    return (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_EMBED_MODEL}:batchEmbedContents"
+    )
+
+
+def _embed_request(text: str) -> dict:
+    """Build one batchEmbedContents request item."""
+    req: dict = {
+        "model": f"models/{GEMINI_EMBED_MODEL}",
+        "content": {"parts": [{"text": text}]},
+    }
+    # gemini-embedding-* defaults to 3072-d; schema expects 768-d vectors
+    if GEMINI_EMBED_MODEL.startswith("gemini-embedding"):
+        req["outputDimensionality"] = EMBED_DIM_SEMANTIC
+    return req
 
 
 def _call_gemini_batch(texts: list[str]) -> list[list[float] | None]:
@@ -25,13 +44,8 @@ def _call_gemini_batch(texts: list[str]) -> list[list[float] | None]:
         logger.warning("GEMINI_API_KEY not set — returning zero vectors")
         return [None] * len(texts)
 
-    url = f"{_EMBED_URL}?key={api_key}"
-    body = {
-        "requests": [
-            {"model": f"models/{GEMINI_EMBED_MODEL}", "content": {"parts": [{"text": t}]}}
-            for t in texts
-        ]
-    }
+    url = f"{_embed_url()}?key={api_key}"
+    body = {"requests": [_embed_request(t) for t in texts]}
     try:
         resp = requests.post(url, json=body, timeout=30)
         resp.raise_for_status()

@@ -10,7 +10,7 @@ DB_POOL_MAX: int = int(os.getenv("PRISMRAG_DB_POOL_MAX", "10"))
 
 # ── Embedding ─────────────────────────────────────────────────────────────────
 GEMINI_API_KEY: str = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_AI_API_KEY") or "").strip()
-GEMINI_EMBED_MODEL: str = os.getenv("PRISMRAG_EMBED_MODEL", "text-embedding-004")
+GEMINI_EMBED_MODEL: str = os.getenv("PRISMRAG_EMBED_MODEL", "gemini-embedding-001")
 GEMINI_LLM_MODEL: str = os.getenv("PRISMRAG_LLM_MODEL", "gemini-2.0-flash")
 EMBED_DIM_SEMANTIC: int = 768    # Gemini output dimension
 EMBED_DIM_PERSONAL: int = 256    # Personal MLP output dimension
