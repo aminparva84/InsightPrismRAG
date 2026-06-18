@@ -437,6 +437,70 @@ ul{color:var(--text-dim);line-height:1.8;padding-left:20px;margin-bottom:12px}
 
     <!-- ── Account ── -->
     <section id="account-me">
+      <h2>Account — Profile</h2>
+      <div class="endpoint">
+        <div class="endpoint-title"><span class="method GET">GET</span>/api/v1/auth/me</div>
+        <div class="endpoint-desc">Returns the authenticated user's profile, plan, and subscription status.</div>
+      </div>
+      <pre><code>{
+  <span class="c-key">"id"</span>:                  <span class="c-str">"uuid"</span>,
+  <span class="c-key">"email"</span>:               <span class="c-str">"user@example.com"</span>,
+  <span class="c-key">"full_name"</span>:           <span class="c-str">"Jane Smith"</span>,
+  <span class="c-key">"plan"</span>:                <span class="c-str">"professional"</span>,
+  <span class="c-key">"subscription_status"</span>: <span class="c-str">"active"</span>,
+  <span class="c-key">"email_verified"</span>:      <span class="c-num">true</span>
+}</code></pre>
+    </section>
+
+    <section id="account-usage">
+      <h2>Account — Usage</h2>
+      <div class="endpoint">
+        <div class="endpoint-title"><span class="method GET">GET</span>/api/v1/auth/usage</div>
+        <div class="endpoint-desc">Returns chunk usage and limits for the current billing period.</div>
+      </div>
+      <pre><code>{
+  <span class="c-key">"plan"</span>:           <span class="c-str">"professional"</span>,
+  <span class="c-key">"chunks_used"</span>:    <span class="c-num">12480</span>,
+  <span class="c-key">"chunks_limit"</span>:   <span class="c-num">500000</span>,
+  <span class="c-key">"period_start"</span>:   <span class="c-str">"2026-06-01"</span>,
+  <span class="c-key">"period_end"</span>:     <span class="c-str">"2026-06-30"</span>
+}</code></pre>
+    </section>
+
+    <section id="billing">
+      <h2>Billing</h2>
+      <div class="tip warn">
+        <span>💳</span>
+        <div><strong>Stripe portal:</strong> Billing is managed via the Stripe customer portal. From your dashboard, go to <strong>Settings → Billing</strong> to upgrade, downgrade, or cancel your subscription.</div>
+      </div>
+      <div class="endpoint">
+        <div class="endpoint-title"><span class="method POST">POST</span>/api/v1/billing/portal</div>
+        <div class="endpoint-desc">Create a Stripe billing portal session. Returns a redirect URL valid for 5 minutes.</div>
+      </div>
+      <pre><code>{ <span class="c-key">"portal_url"</span>: <span class="c-str">"https://billing.stripe.com/session/..."</span> }</code></pre>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// Sidebar active link on scroll
+const sections = document.querySelectorAll('section[id]');
+const links = document.querySelectorAll('.sidebar a[href^="#"]');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const active = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
+    <section id="account-me">
       <h2>Profile</h2>
       <div class="endpoint">
         <div class="endpoint-title"><span class="method GET">GET</span>/auth/me</div>
