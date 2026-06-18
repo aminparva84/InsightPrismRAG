@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 """
-Create and verify the dedicated QA test user in the production Azure environment.
+Verify the production QA user against the published PrismRAG API.
+
+The QA user is created in Azure Postgres via:
+  python tests/seed_qa_data.py --production --drop --dsn <azure-dsn>
 
 Usage:
   python scripts/qa_setup_prod_user.py
-  python scripts/qa_setup_prod_user.py --url https://prismrag-api.delightfuldesert-fc8896c5.eastus2.azurecontainerapps.io
+  python scripts/qa_setup_prod_user.py --url https://prismrag.insightits.com
+  python scripts/qa_setup_prod_user.py --verify-only
 
-What it does:
-  1. Attempts to register qa-prod@test.prismrag.io against the prod API
-  2. Logs in to verify credentials work
-  3. Calls /auth/me to confirm the account is active
-  4. Prints the bearer token so you can paste it into .env or run tests immediately
-
-The QA prod user credentials (stable, never rotate without updating CI):
-  Email    : qa-prod@test.prismrag.io
-  Password : QaProd!2024Secure
+Credentials (stable — update seed + docs if rotated):
+  Email    : qa-prod@insightits.com
+  Password : QaProdPass!2026#
+  User ID  : 20000000-0000-0000-0000-000000000010
 """
 import argparse
 import os
@@ -26,35 +25,21 @@ except ImportError:
     print("ERROR: requests not installed. Run: pip install requests")
     sys.exit(1)
 
-PROD_URL  = "https://prismrag-api.delightfuldesert-fc8896c5.eastus2.azurecontainerapps.io"
-QA_EMAIL  = os.environ.get("PRISMRAG_PROD_QA_EMAIL",    "qa-prod@test.prismrag.io")
-QA_PASS   = os.environ.get("PRISMRAG_PROD_QA_PASSWORD", "QaProd!2024Secure")
-QA_NAME   = "PrismRAG QA Prod User"
-
-
-def register(base: str) -> bool:
-    r = requests.post(f"{base}/api/v1/auth/register", json={
-        "email":     QA_EMAIL,
-        "password":  QA_PASS,
-        "full_name": QA_NAME,
-    }, timeout=15)
-    if r.status_code == 409:
-        print("  User already exists — skipping registration.")
-        return True
-    if r.status_code in (200, 201):
-        print(f"  Registered: {QA_EMAIL}")
-        return True
-    print(f"  [WARN] Register returned {r.status_code}: {r.text[:200]}")
-    return False
+PROD_URL = "https://prismrag.insightits.com"
+QA_EMAIL = os.environ.get("PRISMRAG_PROD_QA_EMAIL", "qa-prod@insightits.com")
+QA_PASS = os.environ.get("PRISMRAG_PROD_QA_PASSWORD", "QaProdPass!2026#")
+QA_NAME = "PrismRAG Production QA"
 
 
 def login(base: str) -> str | None:
-    r = requests.post(f"{base}/api/v1/auth/login", json={
-        "email":    QA_EMAIL,
-        "password": QA_PASS,
-    }, timeout=15)
+    r = requests.post(
+        f"{base}/api/v1/auth/login",
+        json={"email": QA_EMAIL, "password": QA_PASS},
+        timeout=15,
+    )
     if r.status_code != 200:
         print(f"  [ERROR] Login failed {r.status_code}: {r.text[:300]}")
+        print("  Hint: seed Azure DB with tests/seed_qa_data.py --production --drop")
         return None
     data = r.json()
     if data.get("mfa_required"):
@@ -69,13 +54,19 @@ def login(base: str) -> str | None:
 
 
 def verify_me(base: str, token: str) -> bool:
-    r = requests.get(f"{base}/api/v1/auth/me",
-                     headers={"Authorization": f"Bearer {token}"}, timeout=10)
+    r = requests.get(
+        f"{base}/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=10,
+    )
     if r.status_code != 200:
         print(f"  [ERROR] /auth/me returned {r.status_code}: {r.text[:200]}")
         return False
     me = r.json()
-    print(f"  Account confirmed: email={me.get('email')}  plan={me.get('plan')}  active={me.get('is_active')}")
+    print(
+        f"  Account confirmed: email={me.get('email')}  "
+        f"plan={me.get('plan')}  active={me.get('is_active', True)}"
+    )
     return True
 
 
@@ -93,9 +84,17 @@ def check_health(base: str) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Set up PrismRAG QA prod user")
-    parser.add_argument("--url", default=os.environ.get("PRISMRAG_PROD_URL", PROD_URL),
-                        help="Production API base URL")
+    parser = argparse.ArgumentParser(description="Verify PrismRAG production QA user")
+    parser.add_argument(
+        "--url",
+        default=os.environ.get("PRISMRAG_PROD_URL", PROD_URL),
+        help="Production API base URL",
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Login + /me only (user must exist in Azure Postgres)",
+    )
     args = parser.parse_args()
 
     base = args.url.rstrip("/")
@@ -105,27 +104,22 @@ def main():
     print("[1] Checking API health...")
     check_health(base)
 
-    print("\n[2] Registering QA user...")
-    if not register(base):
-        sys.exit(1)
-
-    print("\n[3] Logging in...")
+    print("\n[2] Logging in...")
     token = login(base)
     if not token:
         sys.exit(1)
 
-    print("\n[4] Verifying account...")
+    print("\n[3] Verifying account...")
     if not verify_me(base, token):
         sys.exit(1)
 
     print("\n" + "=" * 60)
     print("QA prod user is READY.")
     print(f"\nAdd to your .env for prod tests:")
-    print(f"  PRISMRAG_TEST_URL={base}")
-    print(f"  PRISMRAG_TEST_EMAIL={QA_EMAIL}")
-    print(f"  PRISMRAG_TEST_PASSWORD={QA_PASS}")
-    print(f"\nBearer token (valid 72h):")
-    print(f"  {token}")
+    print(f"  PRISMRAG_PROD_URL={base}")
+    print(f"  PRISMRAG_PROD_QA_EMAIL={QA_EMAIL}")
+    print(f"  PRISMRAG_PROD_QA_PASSWORD={QA_PASS}")
+    print(f"  QA_SEEDED=1")
     print("=" * 60)
 
 

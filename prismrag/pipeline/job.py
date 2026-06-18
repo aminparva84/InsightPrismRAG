@@ -24,6 +24,7 @@ def create_job(tenant_id: str, request: JobRequest) -> str:
     try:
         cur = conn.cursor()
         import json
+        payload = request.model_dump(mode="json", exclude={"mapping"})
         cur.execute(
             """
             INSERT INTO prismrag.ingest_job
@@ -32,7 +33,7 @@ def create_job(tenant_id: str, request: JobRequest) -> str:
                     now() + interval '%s seconds', now())
             """,
             (job_id, tenant_id, request.source_type.value,
-             json.dumps(request.dict(exclude={"mapping"})),
+             json.dumps(payload),
              3600 * 2),
         )
         conn.commit()

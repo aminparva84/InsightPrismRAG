@@ -1,0 +1,45 @@
+PrismRAG Production QA Report
+Generated: 2026-06-18T03:16:00Z
+API URL:   https://prismrag.insightits.com
+QA User:   qa-prod@insightits.com
+
+=== Infrastructure actions performed ===
+1. Initialized prismrag schema on Azure Postgres (scripts/init_azure_schema.py)
+2. Seeded 3 domains + production QA user (tests/seed_qa_data.py --production --drop)
+3. Pointed prismrag-api and prismrag-worker db-dsn secret at /prismrag database
+4. Fixed QA user password hash in Azure DB
+
+=== API Health ===
+  Status: ok
+
+=== Auth verification ===
+  Login OK — plan=professional, active=True
+
+=== Pytest results (2026-06-18) ===
+  PASSED  test_production_api.py::TestProductionSmoke (3/3)
+    - health, login/me, seeded tenants visible
+  SKIPPED test_production_api.py::TestProductionMappings (3) — mappings list endpoint not exposed
+  ERROR   test_production_api.py::TestProductionIngest (3) — job submit 500
+  ERROR   test_production_api.py::TestProductionSearch (6) — blocked by ingest failure
+  PASSED  test_smoke.py — health, docs, metrics, unauthorized (4/4)
+  ERROR   test_smoke.py — register flow 500 (throwaway smoke user; unrelated to QA user)
+
+=== Root cause: ingest 500 ===
+Container log:
+  TypeError: Object of type UUID is not JSON serializable
+  at prismrag/pipeline/job.py create_job → json.dumps(request.dict(...))
+
+Fix applied locally:
+  prismrag/pipeline/job.py — use request.model_dump(mode="json", exclude={"mapping"})
+
+Requires [publish] deploy to run full ingest + search tests in production.
+
+=== Seeded tenant IDs (QA_SEEDED=1) ===
+  healthcare: 10000000-0000-0000-0000-000000000001
+  pharmacy:   10000000-0000-0000-0000-000000000002
+  finance:    10000000-0000-0000-0000-000000000003
+
+=== Next steps ===
+1. Commit + deploy with [publish] to pick up ingest UUID fix
+2. Re-run: .\scripts\run_production_qa.ps1 -SkipSeed
+3. Update GitHub secret DB_CONNECTION_STRING to use database name prismrag

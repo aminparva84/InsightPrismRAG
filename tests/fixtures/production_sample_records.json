@@ -1,0 +1,116 @@
+{
+  "healthcare": {
+    "table": "clinical_notes",
+    "description": "Simulated EHR discharge summaries and nursing notes",
+    "records": [
+      {
+        "word": "diabetes",
+        "text": "Patient has type 2 diabetes mellitus with HbA1c 8.2%. Started metformin 500mg BID and lifestyle counseling."
+      },
+      {
+        "word": "hypertension",
+        "text": "Essential hypertension stage 2, blood pressure 158/96 on admission. Lisinopril 10mg daily initiated."
+      },
+      {
+        "word": "metformin",
+        "text": "Metformin 500mg twice daily for glycemic control. Counsel on GI side effects and renal monitoring."
+      },
+      {
+        "word": "warfarin",
+        "text": "Warfarin 5mg daily for atrial fibrillation. INR target 2.0-3.0. Monitor for bleeding and drug interactions."
+      },
+      {
+        "word": "troponin",
+        "text": "Elevated troponin I 0.8 ng/mL suggests acute myocardial injury. Serial troponins ordered every 6 hours."
+      },
+      {
+        "word": "hba1c",
+        "text": "HbA1c 8.2% indicates suboptimal diabetes control over the prior 3 months. Goal less than 7%."
+      },
+      {
+        "word": "drug_allergy",
+        "text": "Documented penicillin allergy with prior anaphylaxis. Avoid beta-lactam antibiotics."
+      },
+      {
+        "word": "antibiotics",
+        "text": "IV ceftriaxone 1g daily for community-acquired pneumonia. Duration 5 days per protocol."
+      }
+    ]
+  },
+  "pharmacy": {
+    "table": "drug_monographs",
+    "description": "Simulated pharmacy formulary monographs and interaction alerts",
+    "records": [
+      {
+        "word": "cyp3a4",
+        "text": "Warfarin is metabolized partly via CYP3A4. Strong CYP3A4 inhibitors may increase INR and bleeding risk."
+      },
+      {
+        "word": "cyp450",
+        "text": "CYP450 enzyme system mediates oxidative metabolism of many cardiovascular and psychiatric drugs."
+      },
+      {
+        "word": "black_box_warning",
+        "text": "SSRIs carry a black box warning for increased suicidality in adolescents and young adults."
+      },
+      {
+        "word": "renal_dose_adjustment",
+        "text": "Metformin requires renal dose adjustment when eGFR falls below 45 mL/min. Contraindicated below 30."
+      },
+      {
+        "word": "half_life",
+        "text": "Amoxicillin half-life is approximately 1.0 hour in adults with normal renal function."
+      },
+      {
+        "word": "bioavailability",
+        "text": "Oral amoxicillin bioavailability is about 95% when taken on an empty stomach."
+      },
+      {
+        "word": "refrigerate",
+        "text": "Insulin vials must be refrigerated at 2-8°C before first use. Do not freeze."
+      },
+      {
+        "word": "serotonin_syndrome",
+        "text": "Combining SSRI with MAOI risks serotonin syndrome: agitation, hyperthermia, clonus, and autonomic instability."
+      }
+    ]
+  },
+  "finance": {
+    "table": "analyst_reports",
+    "description": "Simulated equity research excerpts and risk committee memos",
+    "records": [
+      {
+        "word": "dcf",
+        "text": "DCF valuation uses projected free cash flows discounted at WACC 9.2%, implying fair value $142 per share."
+      },
+      {
+        "word": "wacc",
+        "text": "Weighted average cost of capital estimated at 9.2% using 4.5% risk-free rate, 5.5% equity risk premium, beta 1.1."
+      },
+      {
+        "word": "ebitda",
+        "text": "LTM EBITDA $420M with 22% margin. Adjusted EBITDA excludes one-time restructuring charges."
+      },
+      {
+        "word": "var",
+        "text": "99% 1-day VaR is $12.4M under historical simulation. Stress VaR rises to $28M in rate-shock scenario."
+      },
+      {
+        "word": "credit_risk",
+        "text": "Credit risk exposure concentrated in BBB-rated counterparties. Expected loss $3.2M at current PD/LGD."
+      },
+      {
+        "word": "free_cash_flow",
+        "text": "Free cash flow $180M after capex. FCF yield 4.8% supports dividend coverage ratio of 2.1x."
+      },
+      {
+        "word": "current_ratio",
+        "text": "Current ratio 1.8x indicates adequate short-term liquidity. Quick ratio 1.2x after inventory adjustment."
+      },
+      {
+        "word": "sec_filing",
+        "text": "10-K SEC filing due within 60 days. SOX compliance attestation required from external auditors."
+      }
+    ]
+  }
+}

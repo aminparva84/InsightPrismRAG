@@ -15,10 +15,7 @@ VALUES (
     name        = EXCLUDED.name,
     owner_email = EXCLUDED.owner_email;
 
--- Link QA user as owner
-INSERT INTO prismrag.tenant_member (tenant_id, user_id, role)
-VALUES ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'owner')
-ON CONFLICT (tenant_id, user_id) DO NOTHING;
+-- tenant_member linked by seed_qa_data.py after user account exists
 
 -- ── Mapping version ───────────────────────────────────────────────────────────
 INSERT INTO prismrag.mapping_version (id, tenant_id, version, strategy, config_json, status)

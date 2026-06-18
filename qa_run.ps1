@@ -25,7 +25,7 @@ param(
     [switch]$SetupProdUser,
 
     [string]$LocalUrl  = "http://localhost:8001",
-    [string]$ProdUrl   = "https://prismrag-api.delightfuldesert-fc8896c5.eastus2.azurecontainerapps.io",
+    [string]$ProdUrl   = "https://prismrag.insightits.com",
 
     [string[]]$PytestArgs = @()
 )
@@ -80,8 +80,9 @@ if ($Target -eq "local") {
 # ── Determine API URL and credentials ────────────────────────────────────────
 if ($Target -eq "prod") {
     $apiUrl   = $ProdUrl
-    $qaEmail  = if ($env:PRISMRAG_PROD_QA_EMAIL)    { $env:PRISMRAG_PROD_QA_EMAIL }    else { "qa-prod@test.prismrag.io" }
-    $qaPass   = if ($env:PRISMRAG_PROD_QA_PASSWORD) { $env:PRISMRAG_PROD_QA_PASSWORD } else { "QaProd!2024Secure" }
+    $qaEmail  = if ($env:PRISMRAG_PROD_QA_EMAIL)    { $env:PRISMRAG_PROD_QA_EMAIL }    else { "qa-prod@insightits.com" }
+    $qaPass   = if ($env:PRISMRAG_PROD_QA_PASSWORD) { $env:PRISMRAG_PROD_QA_PASSWORD } else { "QaProdPass!2026#" }
+    $env:QA_SEEDED = "1"
 } else {
     $apiUrl   = $LocalUrl
     $qaEmail  = if ($env:PRISMRAG_TEST_EMAIL)    { $env:PRISMRAG_TEST_EMAIL }    else { "qa-local@test.prismrag.io" }
@@ -118,14 +119,27 @@ if ($Target -eq "local") {
 # ── Run pytest ────────────────────────────────────────────────────────────────
 Write-Host "`n=== Running tests (target=$Target  url=$apiUrl) ===" -ForegroundColor Cyan
 
-$pytestCmd = @(
-    "-m", "pytest",
-    "tests/",
-    "--base-url=$apiUrl",
-    "-v",
-    "--tb=short",
-    "--color=yes"
-) + $PytestArgs
+if ($Target -eq "prod") {
+    $pytestCmd = @(
+        "-m", "pytest",
+        "tests/test_production_api.py",
+        "tests/test_smoke.py",
+        "--base-url=$apiUrl",
+        "-v",
+        "--tb=short",
+        "--color=yes"
+    ) + $PytestArgs
+} else {
+    $pytestCmd = @(
+        "-m", "pytest",
+        "tests/",
+        "--base-url=$apiUrl",
+        "--seeded",
+        "-v",
+        "--tb=short",
+        "--color=yes"
+    ) + $PytestArgs
+}
 
 # Scope to domain-specific tests if requested
 if ($Domain -ne "all") {
