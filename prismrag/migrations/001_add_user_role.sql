@@ -1,7 +1,14 @@
 -- Migration 001: add role column to user_account
 -- Roles: user (default) | admin (tenant admin) | superadmin (platform admin)
 ALTER TABLE prismrag.user_account ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user';
-ALTER TABLE prismrag.user_account ADD CONSTRAINT ck_user_role CHECK (role IN ('user', 'admin', 'superadmin'));
+
+DO $$
+BEGIN
+    ALTER TABLE prismrag.user_account
+        ADD CONSTRAINT ck_user_role CHECK (role IN ('user', 'admin', 'superadmin'));
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Add data_region to tenant table (referenced in admin UI)
 ALTER TABLE prismrag.tenant ADD COLUMN IF NOT EXISTS data_region VARCHAR(30) NOT NULL DEFAULT 'eastus2';

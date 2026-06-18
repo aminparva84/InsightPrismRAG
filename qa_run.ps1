@@ -83,6 +83,7 @@ if ($Target -eq "prod") {
     $qaEmail  = if ($env:PRISMRAG_PROD_QA_EMAIL)    { $env:PRISMRAG_PROD_QA_EMAIL }    else { "qa-prod@insightits.com" }
     $qaPass   = if ($env:PRISMRAG_PROD_QA_PASSWORD) { $env:PRISMRAG_PROD_QA_PASSWORD } else { "QaProdPass!2026#" }
     $env:QA_SEEDED = "1"
+    $env:BASE_URL = $apiUrl
 } else {
     $apiUrl   = $LocalUrl
     $qaEmail  = if ($env:PRISMRAG_TEST_EMAIL)    { $env:PRISMRAG_TEST_EMAIL }    else { "qa-local@test.prismrag.io" }

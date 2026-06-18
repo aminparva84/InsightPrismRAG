@@ -112,6 +112,7 @@ $env:PRISMRAG_TEST_URL      = $apiUrl
 $env:PRISMRAG_TEST_EMAIL    = $qaEmail
 $env:PRISMRAG_TEST_PASSWORD = $qaPass
 $env:QA_SEEDED              = "1"
+$env:BASE_URL               = $apiUrl
 
 python -m pytest tests/test_production_api.py tests/test_smoke.py -v --tb=short --color=yes 2>&1 |
     Tee-Object -FilePath $pytestLog |
