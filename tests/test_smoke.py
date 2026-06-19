@@ -54,6 +54,15 @@ def test_docs_reachable(client):
     assert r.status_code == 200
 
 
+def test_openapi_json(client):
+    """OpenAPI schema must generate — Swagger UI depends on /openapi.json."""
+    r = client.get("/openapi.json")
+    assert r.status_code == 200, r.text[:500]
+    body = r.json()
+    assert "openapi" in body
+    assert len(body.get("paths", {})) > 0
+
+
 def test_metrics_endpoint(client):
     """Prometheus /metrics endpoint exists."""
     r = client.get("/metrics")

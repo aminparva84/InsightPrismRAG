@@ -295,6 +295,11 @@ class PatchOrgIn(BaseModel):
     scim_enabled: bool | None = None
 
 
+class CmekIn(BaseModel):
+    vault_url: str
+    key_name: str
+
+
 def register_scim_admin_routes(auth_router):
     """Attach org/SCIM admin endpoints to auth router."""
     from prismrag.auth.auth import get_current_user, require_plan
@@ -445,10 +450,6 @@ def register_scim_admin_routes(auth_router):
             organization_id=org_id,
             scim_base_url=f"{base}/api/v1/scim/v2",
         )
-
-    class CmekIn(BaseModel):
-        vault_url: str
-        key_name: str
 
     @auth_router.post("/organizations/cmek")
     def configure_org_cmek(
