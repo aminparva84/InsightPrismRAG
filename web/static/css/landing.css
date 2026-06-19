@@ -58,7 +58,7 @@ ul { list-style: none; }
 }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; }
 .logo-prism { font-size: 1.4rem; background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.nav-links { display: flex; gap: 28px; margin-left: auto; }
+.nav-links { display: flex; gap: 24px; margin-left: auto; flex-wrap: nowrap; white-space: nowrap; }
 .nav-links a { font-size: 0.9rem; color: var(--text-muted); transition: color 0.2s; }
 .nav-links a:hover { color: var(--text); }
 .nav-cta { display: flex; align-items: center; gap: 12px; margin-left: 16px; }
