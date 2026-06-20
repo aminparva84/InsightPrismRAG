@@ -37,7 +37,9 @@ def _hash_key(raw: str) -> str:
 
 
 def _require_superadmin(user: dict = Depends(get_current_user)) -> dict:
-    if user.get("email", "").lower() != SUPERADMIN_EMAIL.lower():
+    is_superadmin_email = user.get("email", "").lower() == SUPERADMIN_EMAIL.lower()
+    is_superadmin_role  = user.get("role", "") == "superadmin"
+    if not (is_superadmin_email or is_superadmin_role):
         raise HTTPException(status_code=403, detail="Superadmin only")
     return user
 
@@ -62,10 +64,13 @@ class ValidateRequest(BaseModel):
 
 
 class IssueLicenseRequest(BaseModel):
-    company_name:  str = Field(..., min_length=1, max_length=200)
-    contact_email: str = Field(..., min_length=5, max_length=200)
-    plan:          str = Field(default="annual")   # annual | monthly | enterprise
-    duration_days: int = Field(default=365, ge=1, le=3650)
+    company_name:   str = Field(..., min_length=1, max_length=200)
+    contact_email:  str = Field(..., min_length=5, max_length=200)
+    plan:           str = Field(default="enterprise")
+    duration_days:  int = Field(default=365, ge=1, le=3650)
+    expires_at:     str | None = None   # ISO date string, overrides duration_days
+    max_calls_day:  int | None = None   # 0 or None = unlimited (maps to max_calls_per_day)
+    notes:          str | None = None   # internal notes, ignored (no DB column)
     stripe_subscription_id: str | None = None
     stripe_customer_id:     str | None = None
 
@@ -144,11 +149,21 @@ def issue_license(
     _admin: dict = Depends(_require_superadmin),
 ):
     """Issue a new library license. Returns the raw key (shown only once)."""
-    raw_key = "prlib_" + secrets.token_hex(24)   # 54 chars total
+    raw_key  = "prlib_" + secrets.token_hex(24)   # 54 chars total
     key_hash = _hash_key(raw_key)
-    prefix = raw_key[:16]
+    prefix   = raw_key[:16]
 
-    expires_at = datetime.now(timezone.utc) + timedelta(days=body.duration_days)
+    if body.expires_at:
+        try:
+            expires_at = datetime.fromisoformat(body.expires_at.replace("Z", "+00:00"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expires_at format")
+    else:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=body.duration_days)
+
+    max_calls = body.max_calls_day if body.max_calls_day and body.max_calls_day > 0 else 500000
 
     conn = get_conn()
     try:
@@ -156,12 +171,12 @@ def issue_license(
         cur.execute("""
             INSERT INTO prismrag.lib_license
                 (license_key_hash, license_key_prefix, company_name, contact_email,
-                 plan, expires_at, stripe_subscription_id, stripe_customer_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 plan, expires_at, max_calls_per_day, stripe_subscription_id, stripe_customer_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             key_hash, prefix, body.company_name, body.contact_email,
-            body.plan, expires_at,
+            body.plan, expires_at, max_calls,
             body.stripe_subscription_id, body.stripe_customer_id,
         ))
         lid = cur.fetchone()[0]

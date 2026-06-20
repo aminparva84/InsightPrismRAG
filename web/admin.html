@@ -275,8 +275,13 @@
       ...opts,
       headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json', ...(opts.headers || {}) },
     });
-    if (res.status === 401 || res.status === 403) { logout(); return null; }
-    if (!res.ok) throw new Error(await res.text());
+    if (res.status === 401) { logout(); return null; }
+    if (!res.ok) {
+      const body = await res.text();
+      let msg = body;
+      try { msg = JSON.parse(body).detail || body; } catch(_) {}
+      throw new Error(`${res.status}: ${msg}`);
+    }
     return res.json();
   }
 
@@ -433,11 +438,16 @@
   // ── LICENSES ───────────────────────────────────────────────────────────────
 
   async function loadLicenses() {
-    const d = await api('/api/v1/lib/licenses');
-    if (!d) return;
-    _licenses = d.licenses || d;
-    updateLicenseCards();
-    renderLicenses(_licenses);
+    try {
+      const d = await api('/api/v1/lib/licenses');
+      if (!d) return;
+      _licenses = Array.isArray(d) ? d : (d.licenses || []);
+      updateLicenseCards();
+      renderLicenses(_licenses);
+    } catch(e) {
+      document.getElementById('licenses-body').innerHTML =
+        `<div class="empty" style="color:var(--red)">Error loading licenses: ${esc(e.message)}</div>`;
+    }
   }
 
   function updateLicenseCards() {
@@ -458,22 +468,25 @@
         <th>Status</th><th>Expires</th><th>Calls Today</th><th>Last Used</th><th>Notes</th><th></th>
       </tr></thead>
       <tbody>${rows.map(l => {
-        const isActive = l.status === 'active';
-        const keyPreview = (l.license_key || l.key_prefix || '—').slice(0, 16);
+        const expired  = l.expires_at && new Date(l.expires_at) < new Date();
+        const status   = expired && l.status === 'active' ? 'expired' : l.status;
+        const isActive = status === 'active';
+        const keyPreview = (l.license_key_prefix || l.license_key || l.key_prefix || '').slice(0, 16) || '—';
         return `<tr>
           <td class="key-cell"><strong>${esc(keyPreview)}…</strong></td>
-          <td>${esc(l.company_name || l.company || '—')}</td>
+          <td>${esc(l.company_name || '—')}</td>
           <td style="color:var(--muted)">${esc(l.contact_email || '—')}</td>
           <td><span class="badge badge-${l.plan || 'enterprise'}">${l.plan || 'enterprise'}</span></td>
-          <td><span class="badge badge-${l.status}">${l.status}</span></td>
+          <td><span class="badge badge-${status}">${status}</span></td>
           <td style="white-space:nowrap">${l.expires_at ? l.expires_at.slice(0,10) : '—'}</td>
           <td style="text-align:right">${(l.calls_today || 0).toLocaleString()}</td>
           <td style="color:var(--muted);white-space:nowrap">${l.last_validated_at ? l.last_validated_at.slice(0,10) : 'Never'}</td>
-          <td style="color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.notes||'')}">${esc(l.notes || '—')}</td>
           <td style="white-space:nowrap">
             ${isActive
               ? `<button class="action-link danger" onclick="setLicenseStatus('${l.id}','suspended')">Suspend</button>`
-              : `<button class="action-link" onclick="setLicenseStatus('${l.id}','active')">Reinstate</button>`}
+              : status !== 'expired'
+                ? `<button class="action-link" onclick="setLicenseStatus('${l.id}','active')">Reinstate</button>`
+                : '—'}
           </td>
         </tr>`;
       }).join('')}
