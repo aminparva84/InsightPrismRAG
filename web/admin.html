@@ -41,7 +41,7 @@
 
     /* Table */
     .section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 32px; }
-    .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .section-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap; }
     .section-title { font-weight: 600; font-size: .9375rem; }
     input.search { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; color: var(--text); font-size: .85rem; width: 240px; }
     input.search::placeholder { color: var(--muted); }
@@ -55,7 +55,11 @@
     .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
     .badge-starter      { background: rgba(113,128,150,.2); color: var(--muted); }
     .badge-professional { background: rgba(124,106,247,.2); color: var(--accent); }
-    .badge-enterprise   { background: rgba(72,187,120,.2); color: var(--green); }
+    .badge-enterprise   { background: rgba(72,187,120,.2);  color: var(--green); }
+    .badge-active       { background: rgba(72,187,120,.2);  color: var(--green); }
+    .badge-suspended    { background: rgba(252,129,129,.2); color: var(--red); }
+    .badge-expired      { background: rgba(113,128,150,.2); color: var(--muted); }
+    .badge-internal     { background: rgba(236,201,75,.2);  color: var(--yellow); }
 
     /* Tabs */
     .tabs { display: flex; gap: 4px; margin-bottom: 24px; }
@@ -65,6 +69,29 @@
     /* Loading / empty */
     .loading { padding: 40px; text-align: center; color: var(--muted); }
     .empty   { padding: 40px; text-align: center; color: var(--muted); font-size: .875rem; }
+
+    /* Buttons */
+    .btn-sm { padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: .85rem; font-weight: 600; }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); }
+    .action-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: .8rem; padding: 0; text-decoration: underline; }
+    .action-link.danger { color: var(--red); }
+
+    /* Issue license modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px; width: 460px; max-width: 95vw; }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 20px; }
+    .modal .field { margin-bottom: 14px; }
+    .modal .field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 5px; }
+    .modal .field input, .modal .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: var(--text); font-size: .875rem; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-err { color: var(--red); font-size: .8rem; margin-top: 10px; }
+
+    /* License key display */
+    .key-cell { font-family: monospace; font-size: .78rem; color: var(--muted); }
+    .key-cell strong { color: var(--text); }
 
     /* Login wall */
     #login-wall { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -99,6 +126,51 @@
   </div>
 </div>
 
+<!-- Issue License Modal -->
+<div id="license-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeLicenseModal()">
+  <div class="modal">
+    <h2>Issue New License</h2>
+    <div class="field">
+      <label>Company / Client Name *</label>
+      <input id="lm-company" type="text" placeholder="Acme Corp" />
+    </div>
+    <div class="field">
+      <label>Contact Email *</label>
+      <input id="lm-email" type="email" placeholder="billing@acme.com" />
+    </div>
+    <div class="field">
+      <label>Plan</label>
+      <select id="lm-plan">
+        <option value="starter">Starter</option>
+        <option value="professional">Professional</option>
+        <option value="enterprise" selected>Enterprise</option>
+        <option value="internal">Internal</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Expires At *</label>
+      <input id="lm-expires" type="date" />
+    </div>
+    <div class="field">
+      <label>Max API Calls / Day (0 = unlimited)</label>
+      <input id="lm-calls" type="number" value="0" min="0" />
+    </div>
+    <div class="field">
+      <label>Notes (internal)</label>
+      <input id="lm-notes" type="text" placeholder="2-year internal use, ref: board-2026" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-primary" onclick="submitLicense()">Issue License</button>
+      <button class="btn-sm btn-ghost" onclick="closeLicenseModal()">Cancel</button>
+    </div>
+    <div id="lm-err" class="modal-err"></div>
+    <div id="lm-result" style="display:none;margin-top:16px;padding:14px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px">License key issued — copy it now, it won't be shown again</div>
+      <code id="lm-key" style="font-size:.9rem;word-break:break-all;color:var(--green)"></code>
+    </div>
+  </div>
+</div>
+
 <!-- Main layout -->
 <div class="layout" id="app" style="display:none">
   <nav>
@@ -106,6 +178,7 @@
     <a href="#" onclick="showTab('metrics')" class="active" id="nav-metrics">Platform Metrics</a>
     <a href="#" onclick="showTab('tenants')" id="nav-tenants">Tenants</a>
     <a href="#" onclick="showTab('users')" id="nav-users">Users</a>
+    <a href="#" onclick="showTab('licenses')" id="nav-licenses">Licenses</a>
     <a href="#" onclick="showTab('audit')" id="nav-audit">Audit Log</a>
     <a href="#" onclick="logout()" style="position:fixed;bottom:24px;left:0;width:220px">Sign out</a>
   </nav>
@@ -151,6 +224,32 @@
       </div>
     </div>
 
+    <!-- LICENSES TAB -->
+    <div id="tab-licenses" style="display:none">
+      <div class="page-title">Library Licenses</div>
+      <div class="page-sub">All prismrag-patch license keys — issue, suspend, or reinstate</div>
+
+      <!-- Summary cards -->
+      <div class="cards">
+        <div class="card"><div class="label">Total Issued</div><div class="value" id="lc-total">—</div></div>
+        <div class="card"><div class="label">Active</div><div class="value" id="lc-active" style="color:var(--green)">—</div></div>
+        <div class="card"><div class="label">Suspended</div><div class="value" id="lc-suspended" style="color:var(--red)">—</div></div>
+        <div class="card"><div class="label">Expired</div><div class="value" id="lc-expired" style="color:var(--muted)">—</div></div>
+        <div class="card"><div class="label">Calls Today (all)</div><div class="value" id="lc-calls">—</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">All Licenses</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input class="search" placeholder="Search by company or email…" oninput="filterLicenses(this.value)" />
+            <button class="btn-sm btn-primary" onclick="openLicenseModal()">+ Issue License</button>
+          </div>
+        </div>
+        <div id="licenses-body"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
     <!-- AUDIT TAB -->
     <div id="tab-audit" style="display:none">
       <div class="page-title">Audit Log</div>
@@ -169,7 +268,7 @@
 <script>
   const API = '';  // same origin
   let TOKEN = localStorage.getItem('admin_token') || '';
-  let _tenants = [], _users = [], _audit = [];
+  let _tenants = [], _users = [], _audit = [], _licenses = [];
 
   async function api(path, opts = {}) {
     const res = await fetch(API + path, {
@@ -208,26 +307,33 @@
     document.getElementById('login-wall').style.display = 'flex';
   }
 
+  const ALL_TABS = ['metrics','tenants','users','licenses','audit'];
+
   function showTab(name) {
-    ['metrics','tenants','users','audit'].forEach(t => {
+    ALL_TABS.forEach(t => {
       document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
       document.getElementById('nav-' + t).classList.toggle('active', t === name);
     });
-    if (name === 'tenants' && !_tenants.length) loadTenants();
-    if (name === 'users'   && !_users.length)   loadUsers();
-    if (name === 'audit'   && !_audit.length)    loadAudit();
+    if (name === 'tenants'  && !_tenants.length)  loadTenants();
+    if (name === 'users'    && !_users.length)     loadUsers();
+    if (name === 'licenses' && !_licenses.length)  loadLicenses();
+    if (name === 'audit'    && !_audit.length)     loadAudit();
   }
+
+  // ── METRICS ────────────────────────────────────────────────────────────────
 
   async function loadMetrics() {
     const d = await api('/api/v1/admin/metrics/platform?days=7');
     if (!d) return;
-    document.getElementById('m-tenants').textContent      = d.tenants_total;
-    document.getElementById('m-users').textContent        = d.users_total;
-    document.getElementById('m-new-users').textContent    = d.new_users;
-    document.getElementById('m-searches').textContent     = (d.usage.search || 0).toLocaleString();
+    document.getElementById('m-tenants').textContent       = d.tenants_total;
+    document.getElementById('m-users').textContent         = d.users_total;
+    document.getElementById('m-new-users').textContent     = d.new_users;
+    document.getElementById('m-searches').textContent      = (d.usage.search || 0).toLocaleString();
     document.getElementById('m-deliberations').textContent = (d.usage.deliberation || 0).toLocaleString();
-    document.getElementById('m-p50').textContent          = d.quality?.p50_score != null ? d.quality.p50_score.toFixed(3) : 'N/A';
+    document.getElementById('m-p50').textContent           = d.quality?.p50_score != null ? d.quality.p50_score.toFixed(3) : 'N/A';
   }
+
+  // ── TENANTS ────────────────────────────────────────────────────────────────
 
   async function loadTenants(search = '') {
     const url = '/api/v1/admin/tenants?limit=100' + (search ? '&search=' + encodeURIComponent(search) : '');
@@ -276,6 +382,8 @@
     renderTenants(_tenants.filter(t => (t.name + t.owner_email).toLowerCase().includes(lq)));
   }
 
+  // ── USERS ──────────────────────────────────────────────────────────────────
+
   async function loadUsers(search = '') {
     const url = '/api/v1/admin/users?limit=100' + (search ? '&search=' + encodeURIComponent(search) : '');
     const d = await api(url);
@@ -321,6 +429,137 @@
     renderUsers(_users.filter(u => u.email.toLowerCase().includes(lq)));
   }
 
+  // ── LICENSES ───────────────────────────────────────────────────────────────
+
+  async function loadLicenses() {
+    const d = await api('/api/v1/lib/licenses');
+    if (!d) return;
+    _licenses = d.licenses || d;
+    updateLicenseCards();
+    renderLicenses(_licenses);
+  }
+
+  function updateLicenseCards() {
+    document.getElementById('lc-total').textContent     = _licenses.length;
+    document.getElementById('lc-active').textContent    = _licenses.filter(l => l.status === 'active').length;
+    document.getElementById('lc-suspended').textContent = _licenses.filter(l => l.status === 'suspended').length;
+    document.getElementById('lc-expired').textContent   = _licenses.filter(l => l.status === 'expired').length;
+    const calls = _licenses.reduce((s, l) => s + (l.calls_today || 0), 0);
+    document.getElementById('lc-calls').textContent     = calls.toLocaleString();
+  }
+
+  function renderLicenses(rows) {
+    const el = document.getElementById('licenses-body');
+    if (!rows.length) { el.innerHTML = '<div class="empty">No licenses issued yet.</div>'; return; }
+    el.innerHTML = `<table>
+      <thead><tr>
+        <th>Key</th><th>Company</th><th>Contact</th><th>Plan</th>
+        <th>Status</th><th>Expires</th><th>Calls Today</th><th>Last Used</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>${rows.map(l => {
+        const isActive = l.status === 'active';
+        const keyPreview = (l.license_key || l.key_prefix || '—').slice(0, 16);
+        return `<tr>
+          <td class="key-cell"><strong>${esc(keyPreview)}…</strong></td>
+          <td>${esc(l.company_name || l.company || '—')}</td>
+          <td style="color:var(--muted)">${esc(l.contact_email || '—')}</td>
+          <td><span class="badge badge-${l.plan || 'enterprise'}">${l.plan || 'enterprise'}</span></td>
+          <td><span class="badge badge-${l.status}">${l.status}</span></td>
+          <td style="white-space:nowrap">${l.expires_at ? l.expires_at.slice(0,10) : '—'}</td>
+          <td style="text-align:right">${(l.calls_today || 0).toLocaleString()}</td>
+          <td style="color:var(--muted);white-space:nowrap">${l.last_validated_at ? l.last_validated_at.slice(0,10) : 'Never'}</td>
+          <td style="color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(l.notes||'')}">${esc(l.notes || '—')}</td>
+          <td style="white-space:nowrap">
+            ${isActive
+              ? `<button class="action-link danger" onclick="setLicenseStatus('${l.id}','suspended')">Suspend</button>`
+              : `<button class="action-link" onclick="setLicenseStatus('${l.id}','active')">Reinstate</button>`}
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
+  }
+
+  async function setLicenseStatus(id, status) {
+    const verb = status === 'suspended' ? 'Suspend' : 'Reinstate';
+    if (!confirm(`${verb} this license?`)) return;
+    try {
+      await api(`/api/v1/lib/licenses/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      _licenses = [];
+      await loadLicenses();
+    } catch(e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  function filterLicenses(q) {
+    if (!q) { renderLicenses(_licenses); return; }
+    const lq = q.toLowerCase();
+    renderLicenses(_licenses.filter(l =>
+      ((l.company_name || l.company || '') + (l.contact_email || '')).toLowerCase().includes(lq)
+    ));
+  }
+
+  // ── ISSUE LICENSE MODAL ────────────────────────────────────────────────────
+
+  function openLicenseModal() {
+    // Default expiry to 1 year from today
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+    document.getElementById('lm-expires').value = d.toISOString().slice(0,10);
+    document.getElementById('lm-result').style.display = 'none';
+    document.getElementById('lm-err').textContent = '';
+    document.getElementById('lm-company').value = '';
+    document.getElementById('lm-email').value = '';
+    document.getElementById('lm-notes').value = '';
+    document.getElementById('lm-calls').value = '0';
+    document.getElementById('license-modal').style.display = 'flex';
+  }
+
+  function closeLicenseModal() {
+    document.getElementById('license-modal').style.display = 'none';
+    // Refresh list in case a key was just issued
+    _licenses = [];
+    loadLicenses();
+  }
+
+  async function submitLicense() {
+    document.getElementById('lm-err').textContent = '';
+    const company  = document.getElementById('lm-company').value.trim();
+    const email    = document.getElementById('lm-email').value.trim();
+    const plan     = document.getElementById('lm-plan').value;
+    const expires  = document.getElementById('lm-expires').value;
+    const maxCalls = parseInt(document.getElementById('lm-calls').value) || 0;
+    const notes    = document.getElementById('lm-notes').value.trim();
+
+    if (!company) { document.getElementById('lm-err').textContent = 'Company name is required.'; return; }
+    if (!email)   { document.getElementById('lm-err').textContent = 'Contact email is required.'; return; }
+    if (!expires) { document.getElementById('lm-err').textContent = 'Expiry date is required.'; return; }
+
+    try {
+      const r = await api('/api/v1/lib/licenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          company_name:  company,
+          contact_email: email,
+          plan,
+          expires_at:    expires + 'T23:59:59Z',
+          max_calls_day: maxCalls || null,
+          notes,
+        }),
+      });
+      if (!r) return;
+      const key = r.license_key || r.key || '(key not returned — check DB)';
+      document.getElementById('lm-key').textContent = key;
+      document.getElementById('lm-result').style.display = 'block';
+    } catch(e) {
+      document.getElementById('lm-err').textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // ── AUDIT ──────────────────────────────────────────────────────────────────
+
   async function loadAudit() {
     const d = await api('/api/v1/admin/audit?days=7&limit=200');
     if (!d) return;
@@ -349,6 +588,8 @@
     const lq = q.toLowerCase();
     renderAudit(_audit.filter(r => (r.user_email + r.action).toLowerCase().includes(lq)));
   }
+
+  // ── UTILS ──────────────────────────────────────────────────────────────────
 
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
