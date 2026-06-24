@@ -7,6 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from prismrag.logging import configure_logging
+
+configure_logging(service="api")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -35,10 +39,6 @@ from prismrag.middleware.ip_allowlist import IPAllowlistMiddleware
 from prismrag.db import init_schema
 from prismrag.alerting import alert_admin, ErrorSeverity
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
-)
 log = logging.getLogger(__name__)
 
 app = FastAPI(

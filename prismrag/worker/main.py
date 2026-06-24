@@ -20,7 +20,9 @@ def _start_service_bus_worker() -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    from prismrag.logging import configure_logging
+
+    configure_logging(service="worker")
     from prismrag.db import init_schema
 
     init_schema()

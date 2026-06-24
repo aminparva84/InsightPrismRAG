@@ -179,6 +179,8 @@ jobs:
           STRIPE_WH: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           SB_CONN: ${{ secrets.SERVICE_BUS_CONN_STR }}
           ACS_CONN: ${{ secrets.AZURE_COMMUNICATION_CONNECTION_STRING }}
+          STORAGE_CONN: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          PRISMRAG_ADMIN_EMAILS: ${{ secrets.PRISMRAG_ADMIN_EMAILS }}
           STRIPE_PRICE_STARTER: ${{ secrets.STRIPE_PRICE_STARTER }}
           STRIPE_PRICE_PROFESSIONAL: ${{ secrets.STRIPE_PRICE_PROF }}
           STRIPE_PRICE_ENTERPRISE: ${{ secrets.STRIPE_PRICE_ENTERPRISE }}
@@ -186,7 +188,7 @@ jobs:
           PRISMRAG_BASE_URL: ${{ secrets.PRISMRAG_BASE_URL }}
           INGRESS: external
           TARGET_PORT: "8001"
-          MIN_REPLICAS: "1"
+          MIN_REPLICAS: "0"
           MAX_REPLICAS: "20"
           CPU: "0.5"
           MEMORY: "1Gi"
@@ -204,6 +206,8 @@ jobs:
           STRIPE_WH: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           SB_CONN: ${{ secrets.SERVICE_BUS_CONN_STR }}
           ACS_CONN: ${{ secrets.AZURE_COMMUNICATION_CONNECTION_STRING }}
+          STORAGE_CONN: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          PRISMRAG_ADMIN_EMAILS: ${{ secrets.PRISMRAG_ADMIN_EMAILS }}
           STRIPE_PRICE_STARTER: ${{ secrets.STRIPE_PRICE_STARTER }}
           STRIPE_PRICE_PROFESSIONAL: ${{ secrets.STRIPE_PRICE_PROF }}
           STRIPE_PRICE_ENTERPRISE: ${{ secrets.STRIPE_PRICE_ENTERPRISE }}
