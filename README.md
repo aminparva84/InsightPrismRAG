@@ -12,6 +12,8 @@ The Azure SaaS deployment was retired. All core RAG features run locally or on y
 pip install "prismrag-patch[graph]"
 ```
 
+**Example project:** [`examples/demo_app`](examples/demo_app) — install from PyPI, run demo + integration tests.
+
 ## Quick start
 
 ```python
