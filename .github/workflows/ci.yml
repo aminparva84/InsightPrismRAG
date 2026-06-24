@@ -28,9 +28,9 @@ jobs:
           cache: pip
 
       - name: Install package + test deps
+        working-directory: prismrag_patch
         run: |
-          pip install -e "prismrag_patch/[graph]" pytest --quiet
-          pip install -r requirements-test.txt --quiet 2>/dev/null || true
+          pip install -e ".[graph]" pytest --quiet
 
       - name: Run library parity tests
         run: |
